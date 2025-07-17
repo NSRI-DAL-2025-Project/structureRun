@@ -571,15 +571,15 @@ utils.structure.run <- function (g,
                                            " -i ", files["data"], 
                                            " -o ", files["out"]))
       err.code <- system(cmd)
-      #if (err.code == 127) {
-      #  stop("You do not have STRUCTURE installed.")
-      #}
-      #else if (!err.code == 0) {
-      #  stop(paste("Error running STRUCTURE. Error code", 
-      #             err.code, "returned."))
-      #}
-      #files["out"] <- paste(files["out"], "_f", 
-      #                      sep = "")
+      if (err.code == 127) {
+        stop("You do not have STRUCTURE installed.")
+      }
+      else if (!err.code == 0) {
+        stop(paste("Error running STRUCTURE. Error code", 
+                   err.code, "returned."))
+      }
+      files["out"] <- paste(files["out"], "_f", 
+                            sep = "")
       result <- structureRead(files["out"], sw.out$pops)
       if (file.exists("seed.txt")) 
         file.remove("seed.txt")
