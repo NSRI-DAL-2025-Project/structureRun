@@ -1,4 +1,36 @@
-run_structure_with_evanno <- function(
+#' @title Runs a STRUCTURE analysis using a genlight object
+#'
+#' @description
+#' This function takes a genlight object and runs a STRUCTURE analysis based on
+#' functions from \code{strataG}
+#'
+#' @param x Name of the genlight object containing the SNP data [required].
+#' @param ... Parameters to specify the STRUCTURE run (check \code{structureRun}
+#'  within strataG.
+#' for more details). Parameters are passed to the \code{structureRun} function.
+#' For example you need to set the k.range and the type of model you would like
+#' to run (noadmix, locprior) etc. If those parameter names do not tell you
+#' anything, please make sure you familiarize with the STRUCTURE program
+#' (Pritchard 2000).
+#' @param exec Full path and name+extension where the structure executable is
+#' located. E.g. \code{'c:/structure/structure.exe'} under Windows. For Mac and
+#' Linux it might be something like \code{'./structure/structure'} if the
+#' executable is in a subfolder 'structure' in your home directory
+#' [default working directory "."].
+#' @param plot.out Create an Evanno plot once finished. Be aware k.range needs
+#' to be at least three different k steps [default TRUE].
+#' @param plot_theme Theme for the plot. See details for options
+#' [default theme_dartR()].
+#' @param save2tmp If TRUE, saves any ggplots and listings to the session
+#' temporary directory (tempdir) [default FALSE].
+#' @param verbose Set verbosity for this function (though structure output
+#' cannot be switched off currently) [default NULL]
+#' @details The function is basically a convenient wrapper around the beautiful
+#' strataG function \code{structureRun} (Archer et al. 2016). For a detailed
+#' description please refer to this package (see references below).
+#' @author Bernd Gruber (Post to \url{https://groups.google.com/d/forum/dartr})
+#' @export
+run_structure <- function(
     input_file,
     k.range = 1:5,                
     numrep = 3,                   
