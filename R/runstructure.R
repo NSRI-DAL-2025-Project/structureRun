@@ -547,7 +547,7 @@ utils.structure.run <- function (g,
       stop(sprintf("'%s' is not a valid folder.", run_label))
     }
     
-    # ✅Write permission check
+    # Write permission check
     test_file <- file.path(run_label, "test_write_check.txt")
     tryCatch({
       writeLines("Write permission confirmed.", test_file)
@@ -556,7 +556,7 @@ utils.structure.run <- function (g,
       stop(sprintf("Write test failed: %s\nDirectory '%s' is not writeable.", e$message, run_label))
     })
     
-    # Set up k range and replicate structure
+    # 🧬 Set up K range and replicate structure
     if (is.null(k.range)) {
       k.range <- 1:(dplyr::n_distinct(g$data$stratum))
     }
@@ -566,8 +566,8 @@ utils.structure.run <- function (g,
     # Run STRUCTURE for each replicate
     out.files <- lapply(rownames(rep.df), function(x) {
       sw.out <- structureWrite(g, label = x, maxpops = rep.df[x, "k"])
-      
       files <- sw.out$files
+      
       cmd <- paste(exec,
                    "-m", files["mainparams"],
                    "-e", files["extraparams"],
@@ -578,20 +578,26 @@ utils.structure.run <- function (g,
       err.code <- system(cmd)
       message("STRUCTURE exited with code: ", err.code)
       
-      # Inspect output directory for visibility
+      # Inspect output directory contents
       output_dir <- dirname(files["out"])
       message("Checking output directory: ", output_dir)
       print(list.files(output_dir, full.names = TRUE))
       
-      # Check for expected output file
-      expected_out <- paste0(files["out"], "_f")
-      if (!file.exists(expected_out)) {
-        stop(sprintf("Expected STRUCTURE output file '%s' not found.\nCheck if STRUCTURE executed successfully or had write permission.", expected_out))
+      # Check for output file and fallback
+      base_out <- files["out"]
+      alt_out <- paste0(base_out, "_f")
+      
+      if (file.exists(alt_out)) {
+        message("Using STRUCTURE output with '_f' suffix.")
+        files["out"] <- alt_out
+      } else if (file.exists(base_out)) {
+        message("Using fallback STRUCTURE output without '_f' suffix.")
+        files["out"] <- base_out
       } else {
-        files["out"] <- expected_out
+        stop(sprintf("Neither expected STRUCTURE output file '%s' nor fallback '%s' found.\nCheck if STRUCTURE executed correctly or verify input formatting.", alt_out, base_out))
       }
       
-      # Read results and cleanup
+      # Read STRUCTURE results
       result <- structureRead(files["out"], sw.out$pops)
       if (file.exists("seed.txt")) file.remove("seed.txt")
       files <- if (delete.files) NULL else files
@@ -602,7 +608,7 @@ utils.structure.run <- function (g,
       fname
     })
     
-    # results
+    # Compile final results
     run.result <- lapply(out.files, function(f) {
       result <- NULL
       load(f)
@@ -611,7 +617,7 @@ utils.structure.run <- function (g,
     names(run.result) <- sapply(run.result, function(x) x$label)
     class(run.result) <- c("structure.result", class(run.result))
     
-    # Optional
+    # Cleanup (optional)
     if (delete.files) unlink(base_label, recursive = TRUE, force = TRUE)
     
     run.result }
