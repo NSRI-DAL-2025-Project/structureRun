@@ -563,7 +563,7 @@ utils.structure.run <- function (g,
       # ,...)
 
       files <- sw.out$files
-      cmd <- paste0(exec, " -m ", files["mainparams"], 
+      cmd <- stringr::str_c(exec, " -m ", files["mainparams"], 
                     " -e ", files["extraparams"], " -i ", 
                     files["data"], " -o ", files["out"])
       err.code <- system(cmd)
