@@ -99,7 +99,8 @@ running_structure <- function(
     structure_exec = "/usr/local/bin/structure",
     output_dir = tempdir(),
     plot_dir = file.path(output_dir, "evanno_plots"),
-    plot.out = TRUE
+    plot.out = TRUE,
+    save_plots_dir = tempdir()
 ) {
 
   # Validate K range
@@ -175,7 +176,7 @@ running_structure <- function(
   
   ev <- utils.structure.evanno(run.result, plot = FALSE)
   
-  # 📸 Save Evanno plots as PNG
+  # 
   lapply(names(ev$plots), function(pname) {
     plot_obj <- ev$plots[[pname]]
     png_path <- file.path(save_plots_dir, paste0("Evanno_", pname, ".png"))
