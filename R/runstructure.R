@@ -7,24 +7,26 @@ run_structure <- function(
     numrep = 3,
     burnin = 1000,
     numreps = 1000,
+    noadmix = FALSE,
     structure_exec = "/usr/local/bin/structure",
     output_base_dir = tempdir(),
-    plot.out = TRUE
+    plot_dir = file.path(tempdir(), "evanno_plots"),              
+    plot.out = TRUE,
+    delete.files = TRUE
 ) {
   dir.create(output_base_dir, recursive = TRUE, showWarnings = FALSE)
+  dir.create(plot_dir, recursive = TRUE, showWarnings = FALSE)
+  
   genind_obj <- to_genind(input_path)
   str_file <- genind_to_structure_v2(genind_obj, file = "structure_input.str", dir = output_base_dir)
   
-  result <- running_structure(
-    input_file     = str_file,
-    k.range        = k.range,
-    numrep         = numrep,
-    burnin         = burnin,
-    numreps        = numreps,
-    structure_exec = structure_exec,
-    output_dir     = file.path(output_base_dir, "structure_runs"),
-    plot_dir       = file.path(output_base_dir, "evanno_plots"),
-    plot.out       = plot.out
+  result <- run_structure_with_evanno(
+    input_file = str_file,
+    k.range = k.range,
+    numrep = numrep,
+    burnin = burnin,
+    numreps = numreps,
+    noadmix = noadmix
   )
   
   return(result)
@@ -93,6 +95,7 @@ running_structure <- function(
     numrep,
     burnin,
     numreps,
+    noadmix = FALSE,
     structure_exec = "/usr/local/bin/structure",
     output_dir = tempdir(),
     plot_dir = file.path(output_dir, "evanno_plots"),
@@ -131,7 +134,8 @@ running_structure <- function(
     )), con = mainparams)
     
     writeLines(paste("#define", c(
-      "NOADMIX 0", "FREQSCORR 1", "INFERALPHA 1",
+      paste("NOADMIX", ifelse(noadmix, 1, 0)), 
+      "FREQSCORR 1", "INFERALPHA 1",
       "ALPHA 1.0", "COMPUTEPROB 1",
       paste("SEED", sample(1e6, 1)),
       "METROFREQ 10", "REPORTHITRATE 0",
