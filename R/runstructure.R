@@ -61,10 +61,10 @@ to_genind <- function(input_path) {
 genind_to_structure_v2 <- function(genind_obj, file = "structure_input.str", include_pop = TRUE, dir = tempdir()) {
   out_path <- file.path(dir, file)
   # Get basic info
-  ind <- indNames(genind_obj)
+  ind <- adegenet::indNames(genind_obj)
   pop <- if (include_pop) as.character(genind_obj@pop) else rep(1, length(ind))
   ploidy <- max(genind_obj@ploidy)
-  loci <- locNames(genind_obj)
+  loci <- adegenet::locNames(genind_obj)
   n_loc <- length(loci)
   
   # Convert allele matrix to integer format
