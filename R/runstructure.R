@@ -1,47 +1,17 @@
-#' @title Runs a STRUCTURE analysis using a genlight object
-#'
-#' @description
-#' This function takes a genlight object and runs a STRUCTURE analysis based on
-#' functions from \code{strataG}
-#'
-#' @param x Name of the genlight object containing the SNP data [required].
-#' @param ... Parameters to specify the STRUCTURE run (check \code{structureRun}
-#'  within strataG.
-#' for more details). Parameters are passed to the \code{structureRun} function.
-#' For example you need to set the k.range and the type of model you would like
-#' to run (noadmix, locprior) etc. If those parameter names do not tell you
-#' anything, please make sure you familiarize with the STRUCTURE program
-#' (Pritchard 2000).
-#' @param exec Full path and name+extension where the structure executable is
-#' located. E.g. \code{'c:/structure/structure.exe'} under Windows. For Mac and
-#' Linux it might be something like \code{'./structure/structure'} if the
-#' executable is in a subfolder 'structure' in your home directory
-#' [default working directory "."].
-#' @param plot.out Create an Evanno plot once finished. Be aware k.range needs
-#' to be at least three different k steps [default TRUE].
-#' @param plot_theme Theme for the plot. See details for options
-#' [default theme_dartR()].
-#' @param save2tmp If TRUE, saves any ggplots and listings to the session
-#' temporary directory (tempdir) [default FALSE].
-#' @param verbose Set verbosity for this function (though structure output
-#' cannot be switched off currently) [default NULL]
-#' @details The function is basically a convenient wrapper around the beautiful
-#' strataG function \code{structureRun} (Archer et al. 2016). For a detailed
-#' description please refer to this package (see references below).
-#' @author Bernd Gruber (Post to \url{https://groups.google.com/d/forum/dartr})
-#' @export
-run_structure <- function(
+run_structure_with_evanno <- function(
     input_file,
-    k.range = 1:5,
-    numrep = 3,
+    k.range = 1:5,                
+    numrep = 3,                   
+    burnin = 1000,                
+    numreps = 1000,               
     structure_path = "/usr/local/bin/structure",
-    burnin = 1000,
-    numreps = 1000,
     output_dir = tempdir(),
     save_plots_dir = tempdir(),
     delete.files = TRUE,
     plot.out = TRUE
 ) {
+  # Validate K range
+  if (length(k.range) < 2) stop("Provide at least two K values for Evanno analysis.")
   if (!dir.exists(save_plots_dir)) dir.create(save_plots_dir, recursive = TRUE)
   
   numinds <- length(readLines(input_file))
@@ -55,8 +25,6 @@ run_structure <- function(
     k <- rep.df[run_label, "k"]
     out_path <- file.path(output_dir, run_label)
     
-    infile <- input_file
-    outfile <- out_path
     mainparams <- paste0(out_path, "_mainparams")
     extraparams <- paste0(out_path, "_extraparams")
     
@@ -64,14 +32,14 @@ run_structure <- function(
       paste("MAXPOPS", k),
       paste("BURNIN", burnin),
       paste("NUMREPS", numreps),
-      paste("INFILE", infile),
-      paste("OUTFILE", outfile),
+      paste("INFILE", input_file),
+      paste("OUTFILE", out_path),
       paste("NUMINDS", numinds),
       paste("NUMLOCI", numloci),
       "MISSING -9", "LABEL 1", "POPDATA 1",
       "POPFLAG 0", "LOCDATA 0", "PHENOTYPE 0",
       "EXTRACOLS 0", "MARKERNAMES 0"
-    )), mainparams)
+    )), con = mainparams)
     
     writeLines(paste("#define", c(
       "NOADMIX 0", "FREQSCORR 1", "INFERALPHA 1",
@@ -79,20 +47,20 @@ run_structure <- function(
       paste("SEED", sample(1e6, 1)),
       "METROFREQ 10", "REPORTHITRATE 0",
       "STARTATPOPINFO 0"
-    )), extraparams)
+    )), con = extraparams)
     
     cmd <- paste(structure_path,
                  "-m", mainparams,
                  "-e", extraparams,
-                 "-i", infile,
-                 "-o", outfile)
+                 "-i", input_file,
+                 "-o", out_path)
     
     message("Running STRUCTURE: ", cmd)
     log <- tryCatch(system(cmd, intern = TRUE), error = function(e) e$message)
-    writeLines(log, paste0(outfile, "_log.txt"))
+    writeLines(log, paste0(out_path, "_log.txt"))
     
-    final_out <- paste0(outfile, "_f")
-    if (!file.exists(final_out) && file.exists(outfile)) final_out <- outfile
+    final_out <- paste0(out_path, "_f")
+    if (!file.exists(final_out) && file.exists(out_path)) final_out <- out_path
     if (!file.exists(final_out)) {
       warning("Missing output file for run: ", run_label)
       return(NULL)
@@ -110,12 +78,11 @@ run_structure <- function(
   names(run.result) <- sapply(run.result, `[[`, "label")
   class(run.result) <- c("structure.result", class(run.result))
   
-  if (length(run.result) < 3) stop("Need at least 3 successful runs for Evanno analysis.")
+  if (length(run.result) < 3) stop("Evanno analysis needs at least three successful runs.")
   
-  ev <- dartR::utils.structure.evanno(run.result, plot = FALSE)
+  ev <- utils.structure.evanno(run.result, plot = FALSE)
   
-  # 💾 Save Evanno plots
-  # 💾 Save Evanno plots as PNG
+  # 📸 Save Evanno plots as PNG
   lapply(names(ev$plots), function(pname) {
     plot_obj <- ev$plots[[pname]]
     png_path <- file.path(save_plots_dir, paste0("Evanno_", pname, ".png"))
@@ -125,12 +92,15 @@ run_structure <- function(
     message("Saved PNG plot: ", png_path)
   })
   
-  # Optional display
-  if (plot.out) {
+  if (plot.out && "delta.k" %in% names(ev$plots)) {
     suppressMessages(print(ev$plots$delta.k))
   }
   
   if (delete.files) unlink(output_dir, recursive = TRUE)
   
-  invisible(list(results = run.result, evanno = ev, plot.paths = list.files(save_plots_dir, full.names = TRUE)))
+  invisible(list(
+    results = run.result,
+    evanno = ev,
+    plot.paths = list.files(save_plots_dir, full.names = TRUE)
+  ))
 }
