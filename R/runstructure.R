@@ -350,10 +350,11 @@ utils.structure.run <- function (g,
         names(popflag) <- unique(g$data$id)
       }
       
-      in.file <- ifelse(is.null(label), "data", paste(label, "data", sep = "_"))
-      out.file <- ifelse(is.null(label), "out", paste(label, "out", sep = "_"))
-      main.file <- ifelse(is.null(label), "mainparams", paste(label, "mainparams", sep = "_"))
-      extra.file <- ifelse(is.null(label), "extraparams", paste(label, "extraparams", sep = "_"))
+      in.file     <- file.path(getwd(), paste(label, "data", sep = "_"))
+      main.file   <- file.path(getwd(), paste(label, "mainparams", sep = "_"))
+      extra.file  <- file.path(getwd(), paste(label, "extraparams", sep = "_"))
+      out.file    <- file.path(getwd(), paste(label, "out", sep = "_"))
+      
       mat <- .stackedAlleles(g, alleles2integer = TRUE, na.val = -9) %>% 
         dplyr::select(-.data$allele) %>%
         dplyr::mutate(id = gsub(" ", "_", .data$id), 
@@ -362,7 +363,8 @@ utils.structure.run <- function (g,
         dplyr::select(.data$id, .data$stratum, .data$popflag, dplyr::everything()) %>% 
         as.matrix()
       
-      write(paste(sort(unique(g$data[["locus"]])), collapse = " "), file = in.file)
+      #write(paste(sort(unique(g$data[["locus"]])), collapse = " "), file = in.file)
+      stopifnot(all(apply(mat, 1, function(row) length(row) == expected_length)))
       
       for (i in 1:nrow(mat)) {
         write(paste(mat[i, ], collapse = " "), file = in.file, 
@@ -556,7 +558,7 @@ utils.structure.run <- function (g,
       stop(sprintf("Write test failed: %s\nDirectory '%s' is not writeable.", e$message, run_label))
     })
     
-    # 🧬 Set up K range and replicate structure
+    # Set up K range and replicate structure
     if (is.null(k.range)) {
       k.range <- 1:(dplyr::n_distinct(g$data$stratum))
     }
@@ -576,6 +578,10 @@ utils.structure.run <- function (g,
       
       message("Running STRUCTURE with command:\n", cmd)
       err.code <- system(cmd)
+      log_path <- file.path(output_dir, paste0(basename(files["out"]), "_structure.log"))
+      structure_stdout <- tryCatch(system(cmd, intern = TRUE), error = function(e) return(e$message))
+      writeLines(as.character(structure_stdout), log_path)
+      message("STRUCTURE log saved at: ", log_path)
       message("STRUCTURE exited with code: ", err.code)
       
       # Inspect output directory contents
