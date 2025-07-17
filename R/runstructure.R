@@ -537,40 +537,36 @@ utils.structure.run <- function (g,
 
 ###########################################################
     
-    str_path <- function(exec, STRUCTUREoptions = "") {
-      paste(exec, STRUCTUREoptions)
+    # Create output base directory in a safe sandbox
+    base_label <- file.path(tempdir(), gsub("[[:space:]:]", ".", g$description), "structureRun")
+    run_label <- file.path(base_label, "run")
+    dir.create(run_label, recursive = TRUE, showWarnings = FALSE)
+    
+    # Verify folder creation
+    if (!utils::file_test("-d", run_label)) {
+      stop(sprintf("'%s' is not a valid folder.", run_label))
     }
     
+    # ✅Write permission check
+    test_file <- file.path(run_label, "test_write_check.txt")
+    tryCatch({
+      writeLines("Write permission confirmed.", test_file)
+      message("Write test succeeded: ", test_file)
+    }, error = function(e) {
+      stop(sprintf("Write test failed: %s\nDirectory '%s' is not writeable.", e$message, run_label))
+    })
     
-    
-    label <- g$description
-    label <- paste(label, "structureRun", sep = ".")
-    label <- gsub("[[:space:]]", ".", label)
-    label <- gsub(":", ".", label)
-    
-    unlink(label, recursive = TRUE, force = TRUE)
-    
-    dir.create(label)
-    
-    if (!utils::file_test("-d", label)) {
-      stop(sprintf(paste("'", label, "' is not a valid folder.", 
-                 sep = "")))
-    }
-    
-    label <- file.path(label, label)
-    
-    if (is.null(k.range)){ 
+    # Set up k range and replicate structure
+    if (is.null(k.range)) {
       k.range <- 1:(dplyr::n_distinct(g$data$stratum))
     }
-    
     rep.df <- expand.grid(rep = 1:num.k.rep, k = k.range)
-    rownames(rep.df) <- paste(label, ".k", rep.df$k, ".r", 
-                              rep.df$rep, sep = "")
+    rownames(rep.df) <- paste(run_label, ".k", rep.df$k, ".r", rep.df$rep, sep = "")
     
+    # Run STRUCTURE for each replicate
     out.files <- lapply(rownames(rep.df), function(x) {
-      sw.out <- structureWrite(g, label = x, maxpops = rep.df[x,"k"])
-      # ,...)
-
+      sw.out <- structureWrite(g, label = x, maxpops = rep.df[x, "k"])
+      
       files <- sw.out$files
       cmd <- paste(exec,
                    "-m", files["mainparams"],
@@ -578,31 +574,35 @@ utils.structure.run <- function (g,
                    "-i", files["data"],
                    "-o", files["out"])
       
-      message("Running STRUCTURE with command: ", cmd)
+      message("Running STRUCTURE with command:\n", cmd)
       err.code <- system(cmd)
-      
       message("STRUCTURE exited with code: ", err.code)
       
+      # Inspect output directory for visibility
+      output_dir <- dirname(files["out"])
+      message("Checking output directory: ", output_dir)
+      print(list.files(output_dir, full.names = TRUE))
       
-      if (!file.exists(paste0(files["out"], "_f"))) {
-        stop("Expected STRUCTURE output file not found.")
+      # Check for expected output file
+      expected_out <- paste0(files["out"], "_f")
+      if (!file.exists(expected_out)) {
+        stop(sprintf("Expected STRUCTURE output file '%s' not found.\nCheck if STRUCTURE executed successfully or had write permission.", expected_out))
       } else {
-        files["out"] <- paste0(files["out"], "_f")
+        files["out"] <- expected_out
       }
       
-      
+      # Read results and cleanup
       result <- structureRead(files["out"], sw.out$pops)
-      if (file.exists("seed.txt")) 
-        file.remove("seed.txt")
-      files <- if (delete.files) 
-        NULL
-      else files
+      if (file.exists("seed.txt")) file.remove("seed.txt")
+      files <- if (delete.files) NULL else files
+      
       result <- c(result, list(files = files, label = basename(x)))
       fname <- paste(x, ".ws.rdata", sep = "")
       save(result, file = fname)
       fname
     })
     
+    # results
     run.result <- lapply(out.files, function(f) {
       result <- NULL
       load(f)
@@ -610,9 +610,8 @@ utils.structure.run <- function (g,
     })
     names(run.result) <- sapply(run.result, function(x) x$label)
     class(run.result) <- c("structure.result", class(run.result))
-    if (delete.files) 
-      unlink(dirname(label), recursive = TRUE, force = TRUE)
+    
+    # Optional
+    if (delete.files) unlink(base_label, recursive = TRUE, force = TRUE)
+    
     run.result
-  }
-
-
