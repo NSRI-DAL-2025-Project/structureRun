@@ -20,7 +20,7 @@ run_structure <- function(
   genind_obj <- to_genind(input_path)
   str_file <- genind_to_structure_v2(genind_obj, file = "structure_input.str", dir = output_base_dir)
   
-  result <- run_structure_with_evanno(
+  result <- running_structure(
     input_file = str_file,
     k.range = k.range,
     numrep = numrep,
