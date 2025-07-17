@@ -29,7 +29,132 @@
 #' strataG function \code{structureRun} (Archer et al. 2016). For a detailed
 #' description please refer to this package (see references below).
 #' @author Bernd Gruber (Post to \url{https://groups.google.com/d/forum/dartr})
-
+#' @export
+gl.run.structure <- function(x,
+                             ...,
+                             plot.out = TRUE,
+                             plot_theme = theme_dartR(),
+                             exec = "/usr/local/bin/structure",
+                             save2tmp = FALSE,
+                             verbose = NULL) {
+  
+  pkg <- "purrr"
+  if (!(requireNamespace(pkg, quietly = TRUE))) {
+    cat(error(
+      "Package",
+      pkg,
+      " needed for this function to work. Please install it.\n"
+    ))
+    return(-1)
+  }
+  
+  # SET VERBOSITY
+  verbose <- gl.check.verbosity(verbose)
+  
+  # FLAG SCRIPT START
+  funname <- match.call()[[1]]
+  utils.flag.start(func = funname,
+                   build = "Jody",
+                   verbose = verbose)
+  
+  # CHECK DATATYPE
+  #datatype <- utils.check.datatype(x, verbose = verbose)
+  
+  #if (datatype != "SNP") {
+  # stop(error(
+  #   "You need to provide a SNP genlight object (ploidy=2)!"
+  # ))
+  #}
+  
+  if (tools::file_ext(x) == "csv") {
+    file <- readr::read_csv(x)
+  } else if (tools::file_ext(x) == "xlsx") {
+    file <- readxl::read_excel(x)
+  } else {
+    stop("Input file should be in csv or xlsx format.")
+  }
+  
+  file <- lapply(file, function(x) gsub("|", "/", x, fixed = TRUE))
+  file <- as.data.frame(file)
+  
+  library(dplyr)
+  
+  file[is.na(file)] <- "N"
+  file <- file %>%
+    mutate(across(everything(), ~ case_when(
+      . == "N/A" ~ "N", 
+      . == "NA" ~ "N",
+      TRUE ~ .x))) %>%
+    rename(Ind = 1, Pop = 2)
+  
+  ind <- as.character(file$Ind)
+  pop <- as.character(file$Pop)
+  fsnps_geno <- file[, 3:ncol(file)]
+  
+  fsnps_gen <- adegenet::df2genind(fsnps_geno, ind.names = ind, pop = pop, sep = "/", NA.char = "N", ploidy = 2, type = "codom")
+  fsnps_gen@pop <- as.factor(file$Pop)
+  
+  ### ================
+  
+  gg <- dartR::gi2gl(fsnps_gen, verbose = 0)
+  #gg <- fsnps_gen
+  
+  # check that Structure is installed
+  #structure <- Sys.which(exec)
+  
+  
+  # DO THE JOB
+  gg <- dartR::utils.structure.genind2gtypes(dartR::gl2gi(gg, verbose = 0)) 
+  
+  sr <- utils.structure.run(gg, ...)
+  
+  ev <- dartR::utils.structure.evanno(sr)
+  
+  pa <- ((ev$plots$mean.ln.k + ev$plots$mean.ln.k) / 
+           (ev$plots$ln.ppk + ev$plots$delta.k)) + plot_theme
+  
+  # PRINTING OUTPUTS
+  if (plot.out) {
+    suppressMessages(print(pa))
+  }
+  
+  # SAVE INTERMEDIATES TO TEMPDIR
+  if (save2tmp & plot.out) {
+    # check for '/' in match.call
+    mc <- gsub("/", ":", as.character(funname))
+    mc <- gsub(":", "-", mc)
+    nmc <- gsub("/", "_over_", names(funname))
+    nmc <- gsub(":", "-", nmc)
+    
+    # creating temp file names
+    temp_plot <-
+      tempfile(pattern = paste0("Plot", paste0(nmc, "_", mc,
+                                               collapse = "_")))
+    
+    # saving to tempdir
+    saveRDS(pa, file = temp_plot)
+    if (verbose >= 2) {
+      message(
+        "  Saving the plot in ggplot format to the tempfile as",
+        temp_plot
+      )
+      message(
+        "  NOTE: Retrieve output files from tempdir using 
+                        gl.list.reports() and gl.print.reports()"
+      )
+      
+    }
+  }
+  
+  # FLAG SCRIPT END
+  if (verbose >= 1) {
+    message("Completed:", funname, "\n\n")
+  }
+  
+  # RETURN
+  return(sr)
+  
+}
 ###=============== VERBOSITY ================###
 gl.check.verbosity <- function(x = NULL) {
   # SET VERBOSITY or GET it from global
@@ -472,131 +597,4 @@ utils.structure.run <- function (g,
     run.result
   }
 
-### =================== MAIN FUNCTION ===============###
 
-#' @export
-gl.run.structure <- function(x,
-                             ...,
-                             plot.out = TRUE,
-                             plot_theme = theme_dartR(),
-                             exec = "/usr/local/bin/structure",
-                             save2tmp = FALSE,
-                             verbose = NULL) {
-  
-  pkg <- "purrr"
-  if (!(requireNamespace(pkg, quietly = TRUE))) {
-    cat(error(
-      "Package",
-      pkg,
-      " needed for this function to work. Please install it.\n"
-    ))
-    return(-1)
-  }
-  
-  # SET VERBOSITY
-  verbose <- gl.check.verbosity(verbose)
-  
-  # FLAG SCRIPT START
-  funname <- match.call()[[1]]
-  utils.flag.start(func = funname,
-                   build = "Jody",
-                   verbose = verbose)
-  
-  # CHECK DATATYPE
-  #datatype <- utils.check.datatype(x, verbose = verbose)
-  
-  #if (datatype != "SNP") {
-   # stop(error(
-   #   "You need to provide a SNP genlight object (ploidy=2)!"
-   # ))
-  #}
-  
-  if (tools::file_ext(x) == "csv") {
-    file <- readr::read_csv(x)
-  } else if (tools::file_ext(x) == "xlsx") {
-    file <- readxl::read_excel(x)
-  } else {
-    stop("Input file should be in csv or xlsx format.")
-  }
-  
-  file <- lapply(file, function(x) gsub("|", "/", x, fixed = TRUE))
-  file <- as.data.frame(file)
-  
-  library(dplyr)
-  
-  file[is.na(file)] <- "N"
-  file <- file %>%
-    mutate(across(everything(), ~ case_when(
-      . == "N/A" ~ "N", 
-      . == "NA" ~ "N",
-      TRUE ~ .x))) %>%
-    rename(Ind = 1, Pop = 2)
-  
-  ind <- as.character(file$Ind)
-  pop <- as.character(file$Pop)
-  fsnps_geno <- file[, 3:ncol(file)]
-  
-  fsnps_gen <- adegenet::df2genind(fsnps_geno, ind.names = ind, pop = pop, sep = "/", NA.char = "N", ploidy = 2, type = "codom")
-  fsnps_gen@pop <- as.factor(file$Pop)
-
-### ================
-                 
-  gg <- dartR::gi2gl(fsnps_gen, verbose = 0)
-  #gg <- fsnps_gen
-  
-  # check that Structure is installed
-  #structure <- Sys.which(exec)
-
-  
-  # DO THE JOB
-  gg <- dartR::utils.structure.genind2gtypes(dartR::gl2gi(gg, verbose = 0)) 
-  
-  sr <- utils.structure.run(gg, ...)
-  
-  ev <- dartR::utils.structure.evanno(sr)
-  
-  pa <- ((ev$plots$mean.ln.k + ev$plots$mean.ln.k) / 
-           (ev$plots$ln.ppk + ev$plots$delta.k)) + plot_theme
-  
-  # PRINTING OUTPUTS
-  if (plot.out) {
-    suppressMessages(print(pa))
-  }
-  
-  # SAVE INTERMEDIATES TO TEMPDIR
-  if (save2tmp & plot.out) {
-    # check for '/' in match.call
-    mc <- gsub("/", ":", as.character(funname))
-    mc <- gsub(":", "-", mc)
-    nmc <- gsub("/", "_over_", names(funname))
-    nmc <- gsub(":", "-", nmc)
-    
-    # creating temp file names
-    temp_plot <-
-      tempfile(pattern = paste0("Plot", paste0(nmc, "_", mc,
-                                               collapse = "_")))
-    
-    # saving to tempdir
-    saveRDS(pa, file = temp_plot)
-    if (verbose >= 2) {
-        message(
-          "  Saving the plot in ggplot format to the tempfile as",
-          temp_plot
-        )
-      message(
-          "  NOTE: Retrieve output files from tempdir using 
-                        gl.list.reports() and gl.print.reports()"
-        )
-      
-    }
-  }
-  
-  # FLAG SCRIPT END
-  if (verbose >= 1) {
-    message("Completed:", funname, "\n\n")
-  }
-  
-  # RETURN
-  return(sr)
-  
-}
