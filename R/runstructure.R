@@ -575,7 +575,7 @@ utils.structure.run <- function (g,
       #             err.code, "returned."))
       #}
       #files["out"] <- paste(files["out"], "_f", 
-                            sep = "")
+      #                      sep = "")
       result <- structureRead(files["out"], sw.out$pops)
       if (file.exists("seed.txt")) 
         file.remove("seed.txt")
