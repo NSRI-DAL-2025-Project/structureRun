@@ -155,6 +155,12 @@ gl.run.structure <- function(x,
   return(sr)
   
 }
+
+#' @export
+get_structure_exec <- function(exec = Sys.which("structure")) {
+  return(exec)
+}
+
 ###=============== VERBOSITY ================###
 gl.check.verbosity <- function(x = NULL) {
   # SET VERBOSITY or GET it from global
