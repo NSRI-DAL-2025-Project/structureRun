@@ -106,7 +106,7 @@ gl.run.structure <- function(x,
   # DO THE JOB
   gg <- dartR::utils.structure.genind2gtypes(dartR::gl2gi(gg, verbose = 0)) 
   
-  sr <- utils.structure.run(gg, ...)
+  sr <- utils.structure.run(gg, exec = exec, ...)
   
   ev <- dartR::utils.structure.evanno(sr)
   
@@ -530,6 +530,9 @@ utils.structure.run <- function (g,
     }
 
 ###########################################################
+    
+    exec = function(STRUCTUREoptions = "") system(paste(exec, STRUCTUREoptions))
+    
     
     label <- g$description
     label <- paste(label, "structureRun", sep = ".")
