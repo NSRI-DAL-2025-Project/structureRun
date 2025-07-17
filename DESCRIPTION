@@ -1,4 +1,4 @@
-Package: runStructure
+Package: structureRun
 Type: Package
 Title: Runs Structure and fastStructure in R
 Version: 0.0.1.0
