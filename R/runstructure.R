@@ -531,7 +531,10 @@ utils.structure.run <- function (g,
 
 ###########################################################
     
-    str_path = function(STRUCTUREoptions = "") system(paste(exec, STRUCTUREoptions))
+    str_path <- function(exec, STRUCTUREoptions = "") {
+      paste(exec, STRUCTUREoptions)
+    }
+    
     
     
     label <- g$description
@@ -563,9 +566,10 @@ utils.structure.run <- function (g,
       # ,...)
 
       files <- sw.out$files
-      cmd <- str_path(stringr::str_c(" -m ", files["mainparams"], 
-                    " -e ", files["extraparams"], " -i ", 
-                    files["data"], " -o ", files["out"]))
+      cmd <- str_path(exec, stringr::str_c(" -m ", files["mainparams"], 
+                                           " -e ", files["extraparams"], 
+                                           " -i ", files["data"], 
+                                           " -o ", files["out"]))
       err.code <- system(cmd)
       #if (err.code == 127) {
       #  stop("You do not have STRUCTURE installed.")
