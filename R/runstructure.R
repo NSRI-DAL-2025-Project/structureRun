@@ -30,6 +30,68 @@
 #' description please refer to this package (see references below).
 #' @author Bernd Gruber (Post to \url{https://groups.google.com/d/forum/dartr})
 #' @export
+structure_analysis <- function(
+    input_path,
+    output_dir = tempdir(),
+    save_plots_dir = file.path(output_dir, "evanno_plots"),
+    structure_exec = "/usr/local/bin/structure",
+    k.range = 1:5,
+    numrep = 3,
+    burnin = 1000,
+    numreps = 1000,
+    plot.out = TRUE,
+    delete.files = TRUE
+) {
+  # Load input file
+  file_ext <- tools::file_ext(input_path)
+  if (file_ext == "csv") {
+    raw_data <- readr::read_csv(input_path)
+  } else if (file_ext == "xlsx") {
+    raw_data <- readxl::read_excel(input_path)
+  } else {
+    stop("Unsupported file type. Use .csv or .xlsx.")
+  }
+  
+  # Clean genotype data
+  raw_data <- lapply(raw_data, function(x) gsub("|", "/", x, fixed = TRUE)) |> as.data.frame()
+  raw_data[is.na(raw_data)] <- "N"
+  
+  raw_data <- dplyr::mutate(
+    raw_data,
+    across(everything(), ~ dplyr::case_when(. == "N/A" ~ "N", . == "NA" ~ "N", TRUE ~ .x))
+  ) |> dplyr::rename(Ind = 1, Pop = 2)
+  
+  ind <- as.character(raw_data$Ind)
+  pop <- as.character(raw_data$Pop)
+  fsnps_geno <- raw_data[, 3:ncol(raw_data)]
+  
+  fsnps_gen <- adegenet::df2genind(fsnps_geno, ind.names = ind, pop = pop,
+                                   sep = "/", NA.char = "N", ploidy = 2, type = "codom")
+  fsnps_gen@pop <- as.factor(pop)
+  fsnps_gen_sub <- fsnps_gen  # If subsetting is needed later
+  
+  # Generate STRUCTURE input file
+  structure_input <- file.path(output_dir, "structure_input.str")
+  genind_to_structure_clean(fsnps_gen_sub, file = structure_input)
+  
+  # Run STRUCTURE across user-defined K range and analyze Evanno
+  result <- run_structure_with_evanno(
+    input_file = structure_input,
+    k.range = k.range,
+    numrep = numrep,
+    burnin = burnin,
+    numreps = numreps,
+    structure_path = structure_exec,
+    output_dir = file.path(output_dir, "structure_runs"),
+    save_plots_dir = save_plots_dir,
+    plot.out = plot.out,
+    delete.files = delete.files
+  )
+  
+  return(result)
+}
+
+
 run_structure <- function(
     input_file,
     k.range = 1:5,                
