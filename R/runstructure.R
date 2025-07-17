@@ -572,20 +572,25 @@ utils.structure.run <- function (g,
       # ,...)
 
       files <- sw.out$files
-      cmd <- str_path(exec, stringr::str_c(" -m ", files["mainparams"], 
-                                           " -e ", files["extraparams"], 
-                                           " -i ", files["data"], 
-                                           " -o ", files["out"]))
+      cmd <- paste(exec,
+                   "-m", files["mainparams"],
+                   "-e", files["extraparams"],
+                   "-i", files["data"],
+                   "-o", files["out"])
+      
+      message("Running STRUCTURE with command: ", cmd)
       err.code <- system(cmd)
-      if (err.code == 127) {
-        stop("You do not have STRUCTURE installed.")
+      
+      message("STRUCTURE exited with code: ", err.code)
+      
+      
+      if (!file.exists(paste0(files["out"], "_f"))) {
+        stop("Expected STRUCTURE output file not found.")
+      } else {
+        files["out"] <- paste0(files["out"], "_f")
       }
-      else if (!err.code == 0) {
-        stop(paste("Error running STRUCTURE. Error code", 
-                   err.code, "returned."))
-      }
-      files["out"] <- paste(files["out"], "_f", 
-                            sep = "")
+      
+      
       result <- structureRead(files["out"], sw.out$pops)
       if (file.exists("seed.txt")) 
         file.remove("seed.txt")
