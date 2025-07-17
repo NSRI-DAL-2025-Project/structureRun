@@ -60,7 +60,27 @@ to_genind <- function(input_path) {
 
 genind_to_structure_v2 <- function(genind_obj, file = "structure_input.str", include_pop = TRUE, dir = tempdir()) {
   out_path <- file.path(dir, file)
-  # [Same allele matrix logic as before…]
+  # Get basic info
+  ind <- indNames(genind_obj)
+  pop <- if (include_pop) as.character(genind_obj@pop) else rep(1, length(ind))
+  ploidy <- max(genind_obj@ploidy)
+  loci <- locNames(genind_obj)
+  n_loc <- length(loci)
+  
+  # Convert allele matrix to integer format
+  allele_matrix <- matrix(-9, nrow = length(ind), ncol = n_loc * ploidy)
+  colnames(allele_matrix) <- paste(rep(loci, each = ploidy), paste0(".a", 1:ploidy), sep = "")
+  
+  for (i in seq_along(ind)) {
+    for (j in seq_along(loci)) {
+      allele_values <- genind_obj@tab[i, grep(paste0("^", loci[j], "\\."), colnames(genind_obj@tab))]
+      allele_values[is.na(allele_values)] <- -9
+      allele_matrix[i, ((j - 1) * ploidy + 1):(j * ploidy)] <- allele_values
+    }
+  }
+  
+  final_data <- data.frame(ID = ind, POP = pop, allele_matrix, stringsAsFactors = FALSE)
+  
   write.table(final_data, file = out_path, quote = FALSE, sep = " ", row.names = FALSE, col.names = FALSE)
   return(out_path)
 }
@@ -69,10 +89,10 @@ genind_to_structure_v2 <- function(genind_obj, file = "structure_input.str", inc
 
 running_structure <- function(
     input_file,
-    k.range = 1:5,                # ⚙️ User sets tested K values
-    numrep = 3,                   # 🔁 Replicates per K
-    burnin = 1000,                # 🔥 Burn-in cycles
-    numreps = 1000,               # 🧪 MCMC reps
+    k.range = 1:5,                
+    numrep = 3,                   
+    burnin = 1000,                
+    numreps = 1000,               
     structure_path = "/usr/local/bin/structure",
     output_dir = tempdir(),
     save_plots_dir = tempdir(),
