@@ -614,4 +614,4 @@ utils.structure.run <- function (g,
     # Optional
     if (delete.files) unlink(base_label, recursive = TRUE, force = TRUE)
     
-    run.result
+    run.result }
