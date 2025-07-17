@@ -89,16 +89,16 @@ genind_to_structure_v2 <- function(genind_obj, file = "structure_input.str", inc
 
 running_structure <- function(
     input_file,
-    k.range = 1:5,                
-    numrep = 3,                   
-    burnin = 1000,                
-    numreps = 1000,               
-    structure_path = "/usr/local/bin/structure",
+    k.range,
+    numrep,
+    burnin,
+    numreps,
+    structure_exec = "/usr/local/bin/structure",
     output_dir = tempdir(),
-    save_plots_dir = tempdir(),
-    delete.files = TRUE,
+    plot_dir = file.path(output_dir, "evanno_plots"),
     plot.out = TRUE
 ) {
+
   # Validate K range
   if (length(k.range) < 2) stop("Provide at least two K values for Evanno analysis.")
   if (!dir.exists(save_plots_dir)) dir.create(save_plots_dir, recursive = TRUE)
