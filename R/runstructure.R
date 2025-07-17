@@ -1,103 +1,78 @@
 #' @title Runs a STRUCTURE analysis using a genlight object
 #'
-#' @description
-#' This function takes a genlight object and runs a STRUCTURE analysis based on
-#' functions from \code{strataG}
-#'
-#' @param x Name of the genlight object containing the SNP data [required].
-#' @param ... Parameters to specify the STRUCTURE run (check \code{structureRun}
-#'  within strataG.
-#' for more details). Parameters are passed to the \code{structureRun} function.
-#' For example you need to set the k.range and the type of model you would like
-#' to run (noadmix, locprior) etc. If those parameter names do not tell you
-#' anything, please make sure you familiarize with the STRUCTURE program
-#' (Pritchard 2000).
-#' @param exec Full path and name+extension where the structure executable is
-#' located. E.g. \code{'c:/structure/structure.exe'} under Windows. For Mac and
-#' Linux it might be something like \code{'./structure/structure'} if the
-#' executable is in a subfolder 'structure' in your home directory
-#' [default working directory "."].
-#' @param plot.out Create an Evanno plot once finished. Be aware k.range needs
-#' to be at least three different k steps [default TRUE].
-#' @param plot_theme Theme for the plot. See details for options
-#' [default theme_dartR()].
-#' @param save2tmp If TRUE, saves any ggplots and listings to the session
-#' temporary directory (tempdir) [default FALSE].
-#' @param verbose Set verbosity for this function (though structure output
-#' cannot be switched off currently) [default NULL]
-#' @details The function is basically a convenient wrapper around the beautiful
-#' strataG function \code{structureRun} (Archer et al. 2016). For a detailed
-#' description please refer to this package (see references below).
-#' @author Bernd Gruber (Post to \url{https://groups.google.com/d/forum/dartr})
 #' @export
-structure_analysis <- function(
+run_structure <- function(
     input_path,
-    output_dir = tempdir(),
-    save_plots_dir = file.path(output_dir, "evanno_plots"),
-    structure_exec = "/usr/local/bin/structure",
     k.range = 1:5,
     numrep = 3,
     burnin = 1000,
     numreps = 1000,
-    plot.out = TRUE,
-    delete.files = TRUE
+    structure_exec = "/usr/local/bin/structure",
+    output_base_dir = tempdir(),
+    plot.out = TRUE
 ) {
-  # Load input file
-  file_ext <- tools::file_ext(input_path)
-  if (file_ext == "csv") {
-    raw_data <- readr::read_csv(input_path)
-  } else if (file_ext == "xlsx") {
-    raw_data <- readxl::read_excel(input_path)
-  } else {
-    stop("Unsupported file type. Use .csv or .xlsx.")
-  }
+  dir.create(output_base_dir, recursive = TRUE, showWarnings = FALSE)
+  genind_obj <- to_genind(input_path)
+  str_file <- genind_to_structure_v2(genind_obj, file = "structure_input.str", dir = output_base_dir)
   
-  # Clean genotype data
-  raw_data <- lapply(raw_data, function(x) gsub("|", "/", x, fixed = TRUE)) |> as.data.frame()
-  raw_data[is.na(raw_data)] <- "N"
-  
-  raw_data <- dplyr::mutate(
-    raw_data,
-    across(everything(), ~ dplyr::case_when(. == "N/A" ~ "N", . == "NA" ~ "N", TRUE ~ .x))
-  ) |> dplyr::rename(Ind = 1, Pop = 2)
-  
-  ind <- as.character(raw_data$Ind)
-  pop <- as.character(raw_data$Pop)
-  fsnps_geno <- raw_data[, 3:ncol(raw_data)]
-  
-  fsnps_gen <- adegenet::df2genind(fsnps_geno, ind.names = ind, pop = pop,
-                                   sep = "/", NA.char = "N", ploidy = 2, type = "codom")
-  fsnps_gen@pop <- as.factor(pop)
-  fsnps_gen_sub <- fsnps_gen  # If subsetting is needed later
-  
-  # Generate STRUCTURE input file
-  structure_input <- file.path(output_dir, "structure_input.str")
-  genind_to_structure_clean(fsnps_gen_sub, file = structure_input)
-  
-  # Run STRUCTURE across user-defined K range and analyze Evanno
-  result <- run_structure_with_evanno(
-    input_file = structure_input,
-    k.range = k.range,
-    numrep = numrep,
-    burnin = burnin,
-    numreps = numreps,
-    structure_path = structure_exec,
-    output_dir = file.path(output_dir, "structure_runs"),
-    save_plots_dir = save_plots_dir,
-    plot.out = plot.out,
-    delete.files = delete.files
+  result <- running_structure(
+    input_file     = str_file,
+    k.range        = k.range,
+    numrep         = numrep,
+    burnin         = burnin,
+    numreps        = numreps,
+    structure_exec = structure_exec,
+    output_dir     = file.path(output_base_dir, "structure_runs"),
+    plot_dir       = file.path(output_base_dir, "evanno_plots"),
+    plot.out       = plot.out
   )
   
   return(result)
 }
 
+##############
 
-run_structure <- function(
+to_genind <- function(input_path) {
+  ext <- tools::file_ext(input_path)
+  raw <- if (ext == "csv") {
+    readr::read_csv(input_path)
+  } else if (ext == "xlsx") {
+    readxl::read_excel(input_path)
+  } else {
+    stop("Unsupported file type. Please provide a CSV or XLSX.")
+  }
+  
+  raw <- as.data.frame(lapply(raw, function(x) gsub("|", "/", x, fixed = TRUE)))
+  raw[is.na(raw)] <- "N"
+  raw <- dplyr::mutate(raw, across(everything(), ~ dplyr::case_when(. == "N/A" ~ "N", . == "NA" ~ "N", TRUE ~ .x))) |> 
+    dplyr::rename(Ind = 1, Pop = 2)
+  
+  ind <- as.character(raw$Ind)
+  pop <- as.character(raw$Pop)
+  geno <- raw[, 3:ncol(raw)]
+  
+  genind_obj <- adegenet::df2genind(geno, ind.names = ind, pop = pop, sep = "/", NA.char = "N", ploidy = 2, type = "codom")
+  genind_obj@pop <- as.factor(pop)
+  return(genind_obj)
+}
+
+############
+
+genind_to_structure_v2 <- function(genind_obj, file = "structure_input.str", include_pop = TRUE, dir = tempdir()) {
+  out_path <- file.path(dir, file)
+  # [Same allele matrix logic as before…]
+  write.table(final_data, file = out_path, quote = FALSE, sep = " ", row.names = FALSE, col.names = FALSE)
+  return(out_path)
+}
+
+###########
+
+running_structure <- function(
     input_file,
-    k.range = 1:5,                
-    numrep = 3,                   
-    burnin = 1000,                
-    numreps = 1000,               
+    k.range = 1:5,                # ⚙️ User sets tested K values
+    numrep = 3,                   # 🔁 Replicates per K
+    burnin = 1000,                # 🔥 Burn-in cycles
+    numreps = 1000,               # 🧪 MCMC reps
     structure_path = "/usr/local/bin/structure",
     output_dir = tempdir(),
     save_plots_dir = tempdir(),
@@ -198,3 +173,5 @@ run_structure <- function(
     plot.paths = list.files(save_plots_dir, full.names = TRUE)
   ))
 }
+
+########
