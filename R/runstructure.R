@@ -189,7 +189,7 @@ utils.flag.start <- function(func = NULL,
   verbose <- gl.check.verbosity(verbose)
   
   if (is.null(func)) {
-    stop(error("Fatal Error: The calling function must be specified.\n"))
+    stop(paste("Fatal Error: The calling function must be specified.\n"))
   }
   if (verbose >= 1) {
     if (verbose == 5) {
@@ -325,7 +325,7 @@ utils.structure.run <- function (g,
      
       if (!is.null(pop.prior)) {
         if (!pop.prior %in% c("locprior", "usepopinfo")) {
-          stop(error("'pop.prior' must be 'locprior' or 'usepopinfo'."))
+          stop(paste("'pop.prior' must be 'locprior' or 'usepopinfo'."))
         }
       }
       
@@ -334,10 +334,10 @@ utils.structure.run <- function (g,
       }
       
       if (length(popflag) != length(unique(g$data$id))) {
-        stop(error("  'popflag' should be the same length as the number of individuals in 'g'."))
+        stop(sprintf("  'popflag' should be the same length as the number of individuals in 'g'."))
       }
       if (!all(popflag %in% c(0, 1))) {
-        stop(error("  All values in 'popflag' must be 0 or 1."))
+        stop(paste("  All values in 'popflag' must be 0 or 1."))
       }
       
       if (is.null(names(popflag))){ 
@@ -424,7 +424,7 @@ utils.structure.run <- function (g,
                               pops = NULL) {
       
       if (!file.exists(file)) {
-        stop(error(paste("the file '", file, "' can't be found.", 
+        stop(sprintf(paste("the file '", file, "' can't be found.", 
                    sep = "")))
       }
       
@@ -547,7 +547,7 @@ utils.structure.run <- function (g,
     dir.create(label)
     
     if (!utils::file_test("-d", label)) {
-      stop(error(paste("'", label, "' is not a valid folder.", 
+      stop(sprintf(paste("'", label, "' is not a valid folder.", 
                  sep = "")))
     }
     
