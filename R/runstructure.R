@@ -66,6 +66,7 @@ genind_to_structure_v2 <- function(genind_obj, file = "structure_input.str", inc
   out_path <- file.path(dir, file)
   # Get basic info
   ind <- adegenet::indNames(genind_obj)
+  ind <- gsub("[^0-9.-]", "", ind) ## STRUCTURE does not accept numeric characters for inds
   pop <- if (include_pop) as.character(genind_obj@pop) else rep(1, length(ind))
   ploidy <- max(genind_obj@ploidy)
   loci <- adegenet::locNames(genind_obj)
@@ -84,6 +85,8 @@ genind_to_structure_v2 <- function(genind_obj, file = "structure_input.str", inc
   }
   
   final_data <- data.frame(ID = ind, POP = pop, allele_matrix, stringsAsFactors = FALSE)
+  
+  ### ============ ENSURE CONVERSION OF FORMAT ============= ###
   
   write.table(final_data, file = out_path, quote = FALSE, sep = " ", row.names = FALSE, col.names = FALSE)
   return(out_path)
