@@ -20,7 +20,7 @@ run_structure <- function(
   genind_obj <- to_genind(input_path)
   str_file <- genind_to_structure_v2(genind_obj, file = "structure_input.str", dir = output_base_dir)
   
-  check_structure_format("structure_input.str")
+  check_structure_format(str_file)
   
   result <- running_structure(
     input_file = str_file,
