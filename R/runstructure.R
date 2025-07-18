@@ -20,6 +20,8 @@ run_structure <- function(
   genind_obj <- to_genind(input_path)
   str_file <- genind_to_structure_v2(genind_obj, file = "structure_input.str", dir = output_base_dir)
   
+  check_structure_format("./output_base_dir/structure_input.str")
+  
   result <- running_structure(
     input_file = str_file,
     k.range = k.range,
@@ -89,6 +91,56 @@ genind_to_structure_v2 <- function(genind_obj, file = "structure_input.str", inc
 
 ###########
 
+check_structure_format <- function(file_path, ploidy = 2, verbose = TRUE) {
+  if (!file.exists(file_path)) stop("File not found: ", file_path)
+  
+  df <- tryCatch(
+    read.table(file_path, sep = " ", header = FALSE, stringsAsFactors = FALSE, strip.white = TRUE),
+    error = function(e) stop("Unable to read file: ", e$message)
+  )
+  
+  # Minimum expected columns: ID, POP, alleles
+  expected_cols <- 2 + ploidy * floor((ncol(df) - 2) / ploidy)
+  
+  if (ncol(df) < expected_cols) {
+    stop("The file has fewer columns than expected. Check ploidy or locus formatting.")
+  }
+  
+  issues <- list()
+  
+  # Check for missing IDs or POP assignments
+  if (any(df[[1]] == "" | is.na(df[[1]]))) issues$id <- "Missing individual IDs"
+  if (any(df[[2]] == "" | is.na(df[[2]]))) issues$pop <- "Missing population assignments"
+  
+  # Check allele columns: should be integers or -9
+  allele_matrix <- df[, -(1:2)]
+  invalid <- sapply(allele_matrix, function(col) {
+    all(grepl("^(-9|\\d+)$", col)) == FALSE
+  })
+  
+  if (any(invalid)) {
+    issues$alleles <- paste(sum(invalid), "allele columns have invalid values (must be integers or -9).")
+  }
+  
+  # Summary report
+  if (verbose) {
+    message("✅ STRUCTURE Format Check — Report")
+    message("File: ", file_path)
+    message("Individuals: ", nrow(df))
+    message("Populations: ", length(unique(df[[2]])))
+    message("Loci estimated: ", (ncol(df) - 2) / ploidy)
+    if (length(issues) == 0) {
+      message("All format checks passed.")
+    } else {
+      for (item in issues) message("❌ ", item)
+    }
+  }
+  
+  return(invisible(length(issues) == 0))
+}
+
+###########
+
 running_structure <- function(
     input_file,
     k.range,
@@ -134,6 +186,8 @@ running_structure <- function(
       "EXTRACOLS 0", "MARKERNAMES 0"
     )), con = mainparams)
     
+    # change alpha value divide 1 with max K value #######################################################
+    
     writeLines(paste("#define", c(
       paste("NOADMIX", ifelse(noadmix, 1, 0)), 
       "FREQSCORR 1", "INFERALPHA 1",
@@ -169,6 +223,7 @@ running_structure <- function(
   })
   
   run.result <- Filter(Negate(is.null), out_files)
+  message("Successful STRUCTURE runs: ", length(run.result))
   names(run.result) <- sapply(run.result, `[[`, "label")
   class(run.result) <- c("structure.result", class(run.result))
   
