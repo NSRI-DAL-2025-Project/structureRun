@@ -4,7 +4,7 @@
 run_structure <- function(
     input_path,
     k.range = 1:5,
-    numrep = 3,
+    num.k.rep = 3,
     burnin = 1000,
     numreps = 1000,
     noadmix = FALSE,
@@ -18,14 +18,14 @@ run_structure <- function(
   dir.create(plot_dir, recursive = TRUE, showWarnings = FALSE)
   
   genind_obj <- to_genind(input_path)
-  str_file <- genind_to_structure_v2(genind_obj, file = "structure_input.str", dir = output_base_dir)
+  genind_to_structure_v2(genind_obj, file = "structure_input.str", dir = output_base_dir)
   
   check_structure_format(str_file)
   
   result <- running_structure(
-    input_file = str_file,
+    input_file = "structure_input.str",
     k.range = k.range,
-    numrep = numrep,
+    num.k.rep = numrep,
     burnin = burnin,
     numreps = numreps,
     noadmix = noadmix
@@ -147,7 +147,7 @@ check_structure_format <- function(file_path, ploidy = 2, verbose = TRUE) {
 running_structure <- function(
     input_file,
     k.range,
-    numrep,
+    num.k.rep,
     burnin,
     numreps,
     noadmix = FALSE,
@@ -166,7 +166,7 @@ running_structure <- function(
   numloci <- ncol(read.table(input_file, header = FALSE, sep = " ")) - 2
   base_label <- tools::file_path_sans_ext(basename(input_file))
   
-  rep.df <- expand.grid(rep = 1:numrep, k = k.range)
+  rep.df <- expand.grid(rep = 1:num.k.rep, k = k.range)
   rownames(rep.df) <- paste0(base_label, ".k", rep.df$k, ".r", rep.df$rep)
   
   out_files <- lapply(rownames(rep.df), function(run_label) {
@@ -189,12 +189,15 @@ running_structure <- function(
       "EXTRACOLS 0", "MARKERNAMES 0"
     )), con = mainparams)
     
-    # change alpha value divide 1 with max K value #######################################################
+    # change alpha value divide 1 with max K value ###########################
+    k.max = max(k.range)
     
     writeLines(paste("#define", c(
       paste("NOADMIX", ifelse(noadmix, 1, 0)), 
       "FREQSCORR 1", "INFERALPHA 1",
-      "ALPHA 1.0", "COMPUTEPROB 1",
+      paste("ALPHA", k.max),
+      "ALPHA 1.0", 
+      "COMPUTEPROB 1",
       paste("SEED", sample(1e6, 1)),
       "METROFREQ 10", "REPORTHITRATE 0",
       "STARTATPOPINFO 0"
