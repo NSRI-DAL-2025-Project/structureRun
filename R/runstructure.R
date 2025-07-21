@@ -23,7 +23,7 @@ run_structure <- function(
   result <- running_structure(
     input_file = str.file,
     k.range = k.range,
-    num.k.rep = numrep,
+    num.k.rep = num.k.rep,
     burnin = burnin,
     numreps = numreps,
     noadmix = noadmix
