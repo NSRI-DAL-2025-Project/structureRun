@@ -18,10 +18,10 @@ run_structure <- function(
   dir.create(plot_dir, recursive = TRUE, showWarnings = FALSE)
   
   genind_obj <- to_genind(input_path)
-  genind_to_structure_v2(genind_obj, file = "structure_input.str", dir = output_base_dir)
+  str.file <- genind_to_structure_v2(genind_obj, file = "structure_input.str", dir = output_base_dir)
   
   result <- running_structure(
-    input_file = "structure_input.str",
+    input_file = str.file,
     k.range = k.range,
     num.k.rep = numrep,
     burnin = burnin,
