@@ -2,59 +2,23 @@
 % Please edit documentation in R/runstructure.R
 \name{run_structure}
 \alias{run_structure}
-\title{Runs a STRUCTURE analysis using a genlight object}
+\title{Run STRUCTURE analysis}
 \usage{
 run_structure(
-  input_file,
+  file,
   k.range = 1:5,
-  numrep = 3,
-  structure_path = "/usr/local/bin/structure",
+  num.k.rep = 3,
   burnin = 1000,
   numreps = 1000,
-  output_dir = tempdir(),
-  save_plots_dir = tempdir(),
-  delete.files = TRUE,
-  plot.out = TRUE
+  noadmix = FALSE,
+  phased = FALSE,
+  ploidy = 2,
+  linkage = FALSE,
+  structure_path = "./usr/local/bin/structure",
+  output_base_dir = "structure_files",
+  plot_dir = file.path(output_base_dir, "evanno_plots")
 )
 }
-\arguments{
-\item{plot.out}{Create an Evanno plot once finished. Be aware k.range needs
-to be at least three different k steps [default TRUE].}
-
-\item{x}{Name of the genlight object containing the SNP data [required].}
-
-\item{...}{Parameters to specify the STRUCTURE run (check \code{structureRun}
- within strataG.
-for more details). Parameters are passed to the \code{structureRun} function.
-For example you need to set the k.range and the type of model you would like
-to run (noadmix, locprior) etc. If those parameter names do not tell you
-anything, please make sure you familiarize with the STRUCTURE program
-(Pritchard 2000).}
-
-\item{exec}{Full path and name+extension where the structure executable is
-located. E.g. \code{'c:/structure/structure.exe'} under Windows. For Mac and
-Linux it might be something like \code{'./structure/structure'} if the
-executable is in a subfolder 'structure' in your home directory
-[default working directory "."].}
-
-\item{plot_theme}{Theme for the plot. See details for options
-[default theme_dartR()].}
-
-\item{save2tmp}{If TRUE, saves any ggplots and listings to the session
-temporary directory (tempdir) [default FALSE].}
-
-\item{verbose}{Set verbosity for this function (though structure output
-cannot be switched off currently) [default NULL]}
-}
 \description{
-This function takes a genlight object and runs a STRUCTURE analysis based on
-functions from \code{strataG}
-}
-\details{
-The function is basically a convenient wrapper around the beautiful
-strataG function \code{structureRun} (Archer et al. 2016). For a detailed
-description please refer to this package (see references below).
-}
-\author{
-Bernd Gruber (Post to \url{https://groups.google.com/d/forum/dartr})
+Adapted from the dartR package which was based on strataG. Build for docker deployment.
 }
