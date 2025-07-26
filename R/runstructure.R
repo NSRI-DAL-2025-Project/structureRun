@@ -11,35 +11,17 @@ run_structure <- function(
     phased = FALSE,
     ploidy = 2,
     linkage = FALSE,
-    structure_path = "./usr/local/bin/structure",
+    structure_path = "/usr/local/bin/structure",
     output_base_dir = "structure_files", # changed to structure_files
-    plot_dir = file.path(output_base_dir, "evanno_plots")             
+    plot_dir = file.path(output_base_dir, "evanno_plots"),
+    clumpp_plots = file.path(output_base_dir, "str_plots")
     #plot.out = TRUE,
     #delete.files = TRUE
 ){
   dir.create(output_base_dir, recursive = TRUE, showWarnings = FALSE)
   dir.create(plot_dir, recursive = TRUE, showWarnings = FALSE)
+  dir.create(clumpp_plots, recursive = TRUE, showWarnings = FALSE)
   
-  genind_obj <- to_genind(file)
-  str.file <- to_structure(genind_obj, file = "structure_input.str", dir = output_base_dir)
-  
-  result <- running_structure(
-    input_file = str.file,
-    k.range = k.range,
-    num.k.rep = num.k.rep,
-    burnin = burnin,
-    numreps = numreps,
-    noadmix = noadmix
-  )
-  
-  return(result)
-}
-
-###
-
-to_genind <- function(file) {
-  
-  # Read file
   ext <- tools::file_ext(file)
   
   raw <- if (ext == "csv") {
@@ -50,6 +32,8 @@ to_genind <- function(file) {
     stop("Unsupported file type. Please provide a CSV or XLSX.")
   }
   
+  library(dplyr) # to make sure it works
+  
   # Homogenize file format
   # check allele format
   raw <- as.data.frame(lapply(raw, function(x) gsub("|", "/", x, fixed = TRUE)))
@@ -57,6 +41,10 @@ to_genind <- function(file) {
   raw <- dplyr::mutate(raw, across(everything(), ~ dplyr::case_when(. == "N/A" ~ "N", . == "NA" ~ "N", TRUE ~ .x))) |> 
     dplyr::rename(Ind = 1, Pop = 2)
   
+  # For Plotting
+  populations_df <- raw[,1:2]
+  colnames(populations_df) <- c("Label", "Population")
+  populations_df$Label <- rownames(populations_df)
   
   ### Change pop to numeric - for STRUCTURE
   pop_df <- as.data.frame(raw$Pop) %>%
@@ -83,8 +71,31 @@ to_genind <- function(file) {
   
   genind_obj <- adegenet::df2genind(geno, ind.names = ind, pop = pop, sep = "/", NA.char = "N", ploidy = 2, type = "codom")
   genind_obj@pop <- as.factor(pop)
-  return(genind_obj)
+  
+  str.file <- to_structure(genind_obj, file = "structure_input.str", dir = output_base_dir)
+  
+  result <- running_structure(
+    input_file = str.file,
+    k.range = k.range,
+    num.k.rep = num.k.rep,
+    burnin = burnin,
+    numreps = numreps,
+    noadmix = noadmix
+  )
+  
+  #devtools::install_github("sa-lee/starmie")
+  str.dir <- "./structure_files"
+  str.files <- list.files(str.dir, pattern = "\\_f$", full.names = TRUE)
+  str.data <- lapply(str.files, starmie::loadStructure)
+  
+  for (i in str.data){
+    #path_plot <- paste(clumpp_plots, i$K)
+    file_name <- paste0(clumpp_plots, "/", i$K, "plot.png")
+    plotQ(i, populations_df, outfile = file_name)
+  }
+
 }
+
 
 ## Adapted from the dartR package
 to_structure <- function(genind_obj, file = "structure_input.str", include_pop = TRUE, dir = output_base_dir) {
@@ -115,7 +126,7 @@ to_structure <- function(genind_obj, file = "structure_input.str", include_pop =
   return(out_path)
 }
 
-## Directly from the dartR package, revised commented sections
+## Directly from the dartR package, revised sections with comments
 .structureParseQmat <- function (q.mat.txt, 
                                  pops) {
   
@@ -150,7 +161,7 @@ to_structure <- function(genind_obj, file = "structure_input.str", include_pop =
 }
 
 
-## Directly from the dartR package, revised commented sections
+## Directly from the dartR package, revised sections with comments
 structureRead <- function(file,
                           pops = NULL) {
   
@@ -272,7 +283,7 @@ structureRead <- function(file,
 }
 
 
-## Directly from the dartR package, revised commented sections
+## Directly from the dartR package, revised sections with comments
 utils.structure.evanno <- function (sr, plot = TRUE) 
 {
   if (!"structure.result" %in% class(sr)) {
@@ -358,7 +369,7 @@ running_structure <- function(input_file,
                               phased = FALSE,
                               ploidy = 2,
                               linkage = FALSE,
-                              structure_path = "./usr/local/bin/structure",
+                              structure_path = "/usr/local/bin/structure",
                               output_dir = "structure_files",
                               plot_dir = file.path(output_dir, "evanno_plots")){
   
@@ -535,4 +546,77 @@ running_structure <- function(input_file,
     evanno = ev,
     plot.paths = list.files(plot_dir, full.names = TRUE)
   ))
+}
+
+# Plot STRUCTURE
+plotQ <- function(qmat, populations_df, outfile = outfile) {
+  
+  # Revised to be compatible with large list of matrices
+  facet = FALSE
+  K <- qmat$K
+  Label <- seq_len(nrow(qmat$ancest_df))
+  
+  clusters <- qmat$ancest_df %>%
+    as.data.frame() %>%
+    select(contains("Cluster"))
+  colnames(clusters) <- gsub(" ", ".", colnames(clusters))
+  
+  df <- data.frame(ID = as.data.frame(Label), clusters)
+  
+  if (is.null(populations_df)){
+    #Generate a plot without any family information
+    #Q_melt <- reshape2::melt(Q, variable.name="Cluster")
+    Q_melt <- stats::reshape(
+      df, 
+      varying = list(names(clusters)),
+      v.names = "Value",
+      timevar = "Cluster",
+      times = paste0("K", seq_len(K)),
+      direction = "long"
+    )
+    
+    colnames(Q_melt) <- c("Label", "Cluster", "Value")
+  } else{
+    if (length(populations_df$Label) != length(rownames(df)))
+      stop("Unequal sample size.")
+    colnames(populations_df) <- c("Label", "Population")
+    Q_merge <- merge(populations_df, df, by="Label")
+    #Q_melt <- melt(Q_merge, id.vars=c("Label", "Population"), variable.name="Cluster")
+    
+    Q_melt <- stats::reshape(
+      Q_merge, 
+      varying = list(names(clusters)),
+      v.names = "Value",
+      timevar = "Cluster",
+      times = paste0("K", seq_len(K)),
+      direction = "long"
+    )
+  }
+  
+  #Generate plot
+  # Updated to proper ggplot syntax
+  Q_melt <- Q_melt[order(Q_melt$Cluster),]
+  Q_melt$Label <- factor(Q_melt$Label)
+  
+  gg <- ggplot(Q_melt, aes(x=Label, y=Value, fill=Cluster))
+  if (!is.null(populations_df)){
+    if (facet){
+      gg <- gg + facet_grid( Cluster ~ Population, scales = "free_x", space = "free_x")
+    } else{
+      gg <- gg + facet_grid( . ~ Population, scales = "free_x", space = "free_x")
+    }
+  } else{
+    if (facet){
+      gg <- gg + facet_grid( Cluster ~ ., scales = "free_x", space = "free_x")
+    }
+  }
+  gg <- gg + geom_bar(stat = "identity", width=1)
+  gg <- gg + scale_y_continuous(expand=c(0,0), breaks=c(0.25,0.75))
+  gg <- gg + coord_cartesian(ylim=c(0,1))
+  gg <- gg + xlab("Sample ID") + ylab("Proportion of cluster") 
+  gg <- gg + theme_bw()
+  gg <- gg + guides(fill=guide_legend(title="Cluster"))
+  gg <- gg + theme(axis.text.x = element_text(angle = 90))
+  
+  ggplot2::ggsave(outfile, plot = gg, width = 12, height = 10, dpi = 600)
 }

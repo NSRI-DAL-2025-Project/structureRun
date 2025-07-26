@@ -1,7 +1,7 @@
-#define MAXPOPS 5
-#define BURNIN 1000
-#define NUMREPS 1000
-#define INFILE structure_files/sample.csv
+#define MAXPOPS 4
+#define BURNIN 10
+#define NUMREPS 10
+#define INFILE structure_files/structure_input.str
 #define NUMINDS 3656
 #define NUMLOCI 56
 #define PLOIDY 2

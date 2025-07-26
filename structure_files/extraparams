@@ -5,7 +5,7 @@
 #define ONEFST 0
 #define INFERALPHA 1
 #define POPALPHAS 0
-#define ALPHA 0.2
+#define ALPHA 0.25
 #define INFERLAMBDA 0
 #define POPSPECIFICLAMBDA 0
 #define LAMBDA 1.0
