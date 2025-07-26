@@ -14,9 +14,10 @@ run_structure(
   phased = FALSE,
   ploidy = 2,
   linkage = FALSE,
-  structure_path = "./usr/local/bin/structure",
+  structure_path = "/usr/local/bin/structure",
   output_base_dir = "structure_files",
-  plot_dir = file.path(output_base_dir, "evanno_plots")
+  plot_dir = file.path(output_base_dir, "evanno_plots"),
+  clumpp_plots = file.path(output_base_dir, "str_plots")
 )
 }
 \description{
