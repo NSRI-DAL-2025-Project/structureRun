@@ -86,7 +86,7 @@ run_structure <- function(
     num.k.rep = num.k.rep,
     burnin = burnin,
     numreps = numreps,
-    noadmix = noadmix
+    noadmix = noadmix,
     structure_path = structure_path
   )
   
