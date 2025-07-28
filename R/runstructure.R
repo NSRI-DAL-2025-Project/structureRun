@@ -29,6 +29,9 @@ run_structure <- function(
     stop("STRUCTURE not available in the PATH")
   }
   
+  # Get path to working directory
+  path <- getwd()
+  
   ext <- tools::file_ext(file)
   
   raw <- if (ext == "csv") {
@@ -84,7 +87,7 @@ run_structure <- function(
   file = "structure_input.str"
   include_pop = TRUE
   
-  out_path <- file.path(file)
+  out_path <- file.path(path, file)
   # Get basic info
   ind <- adegenet::indNames(genind_obj)
   pop <- if (include_pop) as.character(genind_obj@pop) else rep(1, length(ind))
@@ -129,10 +132,10 @@ run_structure <- function(
   
   out_files <- lapply(1:nrow(rep.df), function(run_label) {
     
-    out_path <- file.path(rep.df[run_label, "run"])
+    out_path <- file.path(path, rep.df[run_label, "run"])
     
-    mainparams <- paste0("/mainparams")
-    extraparams <- paste0("/extraparams")
+    mainparams <- paste0(path, "/mainparams")
+    extraparams <- paste0(path, "/extraparams")
     
     if(is.null(ploidy)){
       ploidy = 2
@@ -256,7 +259,7 @@ run_structure <- function(
   
   lapply(names(ev$plots), function(pname) {
     plot_obj <- ev$plots[[pname]]
-    png_path <- file.path(".", paste0("Evanno_", pname, ".png"))
+    png_path <- file.path(path, paste0("Evanno_", pname, ".png"))
     grDevices::png(filename = png_path, width = 1600, height = 1200, res = 200)
     print(plot_obj)
     grDevices::dev.off()
@@ -264,12 +267,12 @@ run_structure <- function(
   })
   
   
-  str.files <- list.files(pattern = "\\_f$", full.names = TRUE)
+  str.files <- list.files(path, pattern = "\\_f$", full.names = TRUE)
   str.data <- lapply(str.files, starmie::loadStructure)
   
   for (i in str.data){
     #path_plot <- paste(clumpp_plots, i$K)
-    file_name <- paste0("str_result_k", i$K, "plot.png")
+    file_name <- paste0(path, "str_result_k", i$K, "plot.png")
     plotQ(i, populations_df, outfile = file_name)
   }
   
