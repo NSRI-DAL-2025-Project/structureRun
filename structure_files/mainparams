@@ -1,4 +1,4 @@
-#define MAXPOPS 4
+#define MAXPOPS 3
 #define BURNIN 10
 #define NUMREPS 10
 #define INFILE structure_files/structure_input.str

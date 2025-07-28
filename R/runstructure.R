@@ -11,7 +11,7 @@ run_structure <- function(
     phased = FALSE,
     ploidy = 2,
     linkage = FALSE,
-    structure_path = "/usr/local/bin/structure",
+    #structure_path = "/usr/local/bin/structure",
     output_base_dir = tempdir(), # changed to structure_files
     plot_dir = file.path(output_base_dir, "evanno_plots"),
     clumpp_plots = file.path(output_base_dir, "str_plots")
@@ -21,6 +21,12 @@ run_structure <- function(
   dir.create(output_base_dir, recursive = TRUE, showWarnings = FALSE)
   dir.create(plot_dir, recursive = TRUE, showWarnings = FALSE)
   dir.create(clumpp_plots, recursive = TRUE, showWarnings = FALSE)
+  
+  # Get STRUCTURE path
+  structure_path <- Sys.which("structure")
+  if(structure_path == ""){
+    stop("STRUCTURE not available in the PATH")
+  }
   
   ext <- tools::file_ext(file)
   
@@ -81,6 +87,7 @@ run_structure <- function(
     burnin = burnin,
     numreps = numreps,
     noadmix = noadmix
+    structure_path = structure_path
   )
   
   #devtools::install_github("sa-lee/starmie")
@@ -369,7 +376,7 @@ running_structure <- function(input_file,
                               phased = FALSE,
                               ploidy = 2,
                               linkage = FALSE,
-                              structure_path = "/usr/local/bin/structure",
+                              structure_path = structure_path,
                               output_dir = tempdir(), # replaced "structure_files" with tempdir()
                               plot_dir = file.path(output_dir, "evanno_plots")){
   
