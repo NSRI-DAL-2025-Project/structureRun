@@ -12,7 +12,7 @@ run_structure <- function(
     ploidy = 2,
     linkage = FALSE,
     structure_path = "/usr/local/bin/structure",
-    output_base_dir = "structure_files", # changed to structure_files
+    output_base_dir = tempdir(), # changed to structure_files
     plot_dir = file.path(output_base_dir, "evanno_plots"),
     clumpp_plots = file.path(output_base_dir, "str_plots")
     #plot.out = TRUE,
@@ -84,7 +84,7 @@ run_structure <- function(
   )
   
   #devtools::install_github("sa-lee/starmie")
-  str.dir <- "./structure_files"
+  str.dir <- output_base_dir
   str.files <- list.files(str.dir, pattern = "\\_f$", full.names = TRUE)
   str.data <- lapply(str.files, starmie::loadStructure)
   
@@ -370,7 +370,7 @@ running_structure <- function(input_file,
                               ploidy = 2,
                               linkage = FALSE,
                               structure_path = "/usr/local/bin/structure",
-                              output_dir = "structure_files",
+                              output_dir = tempdir(), # replaced "structure_files" with tempdir()
                               plot_dir = file.path(output_dir, "evanno_plots")){
   
   
