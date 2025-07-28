@@ -24,7 +24,10 @@ run_structure <- function(
   
   ### ================ 1. Read CSV/VCF Files
   # Get STRUCTURE path
-  structure_path <- "./structure.exe"
+  structure_path <- Sys.which("structure")
+  if(structure_path == ""){
+    stop("STRUCTURE not available in the PATH")
+  }
   
   ext <- tools::file_ext(file)
   
