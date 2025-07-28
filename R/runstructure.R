@@ -10,17 +10,17 @@ run_structure <- function(
     noadmix = FALSE,
     phased = FALSE,
     ploidy = 2,
-    linkage = FALSE,
+    linkage = FALSE #,
     #structure_path = "/usr/local/bin/structure",
-    output_base_dir = tempdir(), # changed to structure_files
-    plot_dir = file.path(output_base_dir, "evanno_plots"),
-    clumpp_plots = file.path(output_base_dir, "str_plots")
+    #output_base_dir = tempdir(), # changed to structure_files
+    #plot_dir = file.path(output_base_dir, "evanno_plots"),
+    #clumpp_plots = file.path(output_base_dir, "str_plots")
     #plot.out = TRUE,
     #delete.files = TRUE
 ){
-  dir.create(output_base_dir, recursive = TRUE, showWarnings = FALSE)
-  dir.create(plot_dir, recursive = TRUE, showWarnings = FALSE)
-  dir.create(clumpp_plots, recursive = TRUE, showWarnings = FALSE)
+  #dir.create(output_base_dir, recursive = TRUE, showWarnings = FALSE)
+  #dir.create(plot_dir, recursive = TRUE, showWarnings = FALSE)
+  #dir.create(clumpp_plots, recursive = TRUE, showWarnings = FALSE)
   
   # Get STRUCTURE path
   structure_path <- Sys.which("structure")
@@ -78,7 +78,7 @@ run_structure <- function(
   genind_obj <- adegenet::df2genind(geno, ind.names = ind, pop = pop, sep = "/", NA.char = "N", ploidy = 2, type = "codom")
   genind_obj@pop <- as.factor(pop)
   
-  str.file <- to_structure(genind_obj, file = "structure_input.str", dir = output_base_dir)
+  str.file <- to_structure(genind_obj, file = "structure_input.str") # removed dir
   
   result <- running_structure(
     input_file = str.file,
@@ -91,13 +91,13 @@ run_structure <- function(
   )
   
   #devtools::install_github("sa-lee/starmie")
-  str.dir <- output_base_dir
-  str.files <- list.files(str.dir, pattern = "\\_f$", full.names = TRUE)
+  #str.dir <- output_base_dir
+  str.files <- list.files(".", pattern = "\\_f$", full.names = TRUE)
   str.data <- lapply(str.files, starmie::loadStructure)
   
   for (i in str.data){
     #path_plot <- paste(clumpp_plots, i$K)
-    file_name <- paste0(clumpp_plots, "/", i$K, "plot.png")
+    file_name <- paste0("str_result_k", i$K, "plot.png")
     plotQ(i, populations_df, outfile = file_name)
   }
 
@@ -105,8 +105,8 @@ run_structure <- function(
 
 
 ## Adapted from the dartR package
-to_structure <- function(genind_obj, file = "structure_input.str", include_pop = TRUE, dir = output_base_dir) {
-  out_path <- file.path(dir, file)
+to_structure <- function(genind_obj, file = "structure_input.str", include_pop = TRUE) {
+  out_path <- file.path(file)
   # Get basic info
   ind <- adegenet::indNames(genind_obj)
   pop <- if (include_pop) as.character(genind_obj@pop) else rep(1, length(ind))
@@ -376,14 +376,14 @@ running_structure <- function(input_file,
                               phased = FALSE,
                               ploidy = 2,
                               linkage = FALSE,
-                              structure_path = structure_path,
-                              output_dir = tempdir(), # replaced "structure_files" with tempdir()
-                              plot_dir = file.path(output_dir, "evanno_plots")){
+                              structure_path = structure_path){ #,
+                              #output_dir = tempdir(), # replaced "structure_files" with tempdir()
+                              #plot_dir = file.path(output_dir, "evanno_plots")){
   
   
   # Validate K range
   if (length(k.range) < 2) stop("Provide at least two K values for Evanno analysis.")
-  if (!dir.exists(plot_dir)) dir.create(plot_dir, recursive = TRUE)
+  #if (!dir.exists(plot_dir)) dir.create(plot_dir, recursive = TRUE)
   
   numinds <- length(readLines(input_file))
   numloci <- (ncol(read.table(input_file, header = FALSE, sep = " ")) - 2)/2
@@ -397,16 +397,13 @@ running_structure <- function(input_file,
   out_files <- lapply(1:nrow(rep.df), function(run_label) {
     #k <- rep.df[i, "k"]
     #####################
-    out_path <- file.path(output_dir, rep.df[run_label, "run"])
+    out_path <- file.path(".", rep.df[run_label, "run"])
     
-    mainparams <- paste0(output_dir, "/mainparams")
-    extraparams <- paste0(output_dir, "/extraparams")
-    
-    #mainparams <- paste0(dir, "mainparams")
-    #extraparams <- paste0(dir, "extraparams")
+    mainparams <- paste0(".", "/mainparams")
+    extraparams <- paste0(".", "/extraparams")
     
     if(is.null(ploidy)){
-      ploidy = "2"
+      ploidy = 2
     } else {
       ploidy = ploidy
     }
@@ -416,7 +413,6 @@ running_structure <- function(input_file,
       paste("BURNIN", burnin),
       paste("NUMREPS", numreps),
       paste("INFILE", input_file),
-      #paste("OUTFILE", out_path),
       paste("NUMINDS", numinds),
       paste("NUMLOCI", numloci),
       paste("PLOIDY", ploidy),
@@ -535,7 +531,7 @@ running_structure <- function(input_file,
   # 
   lapply(names(ev$plots), function(pname) {
     plot_obj <- ev$plots[[pname]]
-    png_path <- file.path(plot_dir, paste0("Evanno_", pname, ".png"))
+    png_path <- file.path(".", paste0("Evanno_", pname, ".png"))
     grDevices::png(filename = png_path, width = 1600, height = 1200, res = 200)
     print(plot_obj)
     grDevices::dev.off()
@@ -551,7 +547,7 @@ running_structure <- function(input_file,
   invisible(list(
     results = run.result,
     evanno = ev,
-    plot.paths = list.files(plot_dir, full.names = TRUE)
+    plot.paths = list.files(".", pattern = "^Evanno_*", full.names = TRUE)
   ))
 }
 
