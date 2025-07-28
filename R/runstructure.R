@@ -30,7 +30,7 @@ run_structure <- function(
   }
   
   # Get path to working directory
-  path <- getwd()
+  path <- "./structure_files"
   
   ext <- tools::file_ext(file)
   
