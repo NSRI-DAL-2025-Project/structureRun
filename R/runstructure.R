@@ -87,7 +87,7 @@ run_structure <- function(
   file = "structure_input.str"
   include_pop = TRUE
   
-  out_path <- file.path(path, file)
+  #out_path <- file.path(path, file)
   # Get basic info
   ind <- adegenet::indNames(genind_obj)
   pop <- if (include_pop) as.character(genind_obj@pop) else rep(1, length(ind))
@@ -110,13 +110,12 @@ run_structure <- function(
   final_data <- data.frame(ID = ind, POP = pop, allele_matrix, stringsAsFactors = FALSE)
   
   
-  write.table(final_data, file = out_path, quote = FALSE, sep = " ", row.names = FALSE, col.names = FALSE)
+  write.table(final_data, file = "structure_input.str", quote = FALSE, sep = " ", row.names = FALSE, col.names = FALSE)
   
   ### ================ 3. RUN STRUCTURE
-  
-  input_file = out_path
-  
-  
+  wd <- getwd()
+  input_file = file.path(paste0(wd, "structure_input.str"))
+
   # Validate K range
   if (length(k.range) < 2) stop("Provide at least two K values for Evanno analysis.")
   #if (!dir.exists(plot_dir)) dir.create(plot_dir, recursive = TRUE)
