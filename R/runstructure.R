@@ -22,11 +22,9 @@ run_structure <- function(
   #dir.create(plot_dir, recursive = TRUE, showWarnings = FALSE)
   #dir.create(clumpp_plots, recursive = TRUE, showWarnings = FALSE)
   
+  ### ================ 1. Read CSV/VCF Files
   # Get STRUCTURE path
-  structure_path <- Sys.which("structure")
-  if(structure_path == ""){
-    stop("STRUCTURE not available in the PATH")
-  }
+  structure_path <- "./structure.exe"
   
   ext <- tools::file_ext(file)
   
@@ -78,34 +76,11 @@ run_structure <- function(
   genind_obj <- adegenet::df2genind(geno, ind.names = ind, pop = pop, sep = "/", NA.char = "N", ploidy = 2, type = "codom")
   genind_obj@pop <- as.factor(pop)
   
-  str.file <- to_structure(genind_obj, file = "structure_input.str") # removed dir
+  ### ================ 2. Write STR File
   
-  result <- running_structure(
-    input_file = str.file,
-    k.range = k.range,
-    num.k.rep = num.k.rep,
-    burnin = burnin,
-    numreps = numreps,
-    noadmix = noadmix,
-    structure_path = structure_path
-  )
+  file = "structure_input.str"
+  include_pop = TRUE
   
-  #devtools::install_github("sa-lee/starmie")
-  #str.dir <- output_base_dir
-  str.files <- list.files(".", pattern = "\\_f$", full.names = TRUE)
-  str.data <- lapply(str.files, starmie::loadStructure)
-  
-  for (i in str.data){
-    #path_plot <- paste(clumpp_plots, i$K)
-    file_name <- paste0("str_result_k", i$K, "plot.png")
-    plotQ(i, populations_df, outfile = file_name)
-  }
-
-}
-
-
-## Adapted from the dartR package
-to_structure <- function(genind_obj, file = "structure_input.str", include_pop = TRUE) {
   out_path <- file.path(file)
   # Get basic info
   ind <- adegenet::indNames(genind_obj)
@@ -130,8 +105,173 @@ to_structure <- function(genind_obj, file = "structure_input.str", include_pop =
   
   
   write.table(final_data, file = out_path, quote = FALSE, sep = " ", row.names = FALSE, col.names = FALSE)
-  return(out_path)
+  
+  ### ================ 3. RUN STRUCTURE
+  
+  input_file = out_path
+  
+  
+  # Validate K range
+  if (length(k.range) < 2) stop("Provide at least two K values for Evanno analysis.")
+  #if (!dir.exists(plot_dir)) dir.create(plot_dir, recursive = TRUE)
+  
+  numinds <- length(readLines(input_file))
+  numloci <- (ncol(read.table(input_file, header = FALSE, sep = " ")) - 2)/2
+  
+  base_label <- tools::file_path_sans_ext(basename(input_file))
+  
+  rep.df <- expand.grid(rep = 1:num.k.rep, k = k.range)
+  rep.df$run <- paste0(base_label, ".k", rep.df$k, ".r", rep.df$rep)
+  
+  
+  out_files <- lapply(1:nrow(rep.df), function(run_label) {
+    
+    out_path <- file.path(rep.df[run_label, "run"])
+    
+    mainparams <- paste0("/mainparams")
+    extraparams <- paste0("/extraparams")
+    
+    if(is.null(ploidy)){
+      ploidy = 2
+    } else {
+      ploidy = ploidy
+    }
+    
+    writeLines(paste("#define", c(
+      paste("MAXPOPS", rep.df[run_label, "k"]),
+      paste("BURNIN", burnin),
+      paste("NUMREPS", numreps),
+      paste("INFILE", input_file),
+      paste("NUMINDS", numinds),
+      paste("NUMLOCI", numloci),
+      paste("PLOIDY", ploidy),
+      "MISSING -9", 
+      "ONEROWPERIND 1",
+      "LABEL 1", 
+      "POPDATA 1",
+      "POPFLAG 0", 
+      "LOCDATA 0", 
+      "PHENOTYPE 0",
+      "EXTRACOLS 0", 
+      "MARKERNAMES 0",
+      "RECESSIVEALLELES 0",
+      "MAPDISTANCES 0",
+      paste("PHASED", ifelse(phased, 1, 0)),
+      "MARKOVPHASE 0",
+      "NOTAMBIGUOUS -999"
+    )), con = mainparams)
+    
+    # change alpha value divide 1 with max K value 
+    alpha = 1/max(k.range)
+    
+    writeLines(paste("#define", c(
+      paste("NOADMIX", ifelse(noadmix, 1, 0)), 
+      paste("LINKAGE", ifelse(linkage, 1, 0)),
+      "USEPOPINFO 0",
+      "FREQSCORR 1",
+      "ONEFST 0",
+      "INFERALPHA 1",
+      "POPALPHAS 0",
+      paste("ALPHA", alpha),
+      "INFERLAMBDA 0",
+      "POPSPECIFICLAMBDA 0",
+      "LAMBDA 1.0",
+      "FPRIORMEAN 0.01",
+      "FPRIORSD 0.05",
+      "UNIFPRIORALPHA 1",
+      "ALPHAMAX 10.0",
+      "ALPHAPRIORA 1.0",
+      "ALPHAPRIORB 2.0",
+      "LOG10RMIN -4.0",
+      "LOG10RMAX 1.0",
+      "LOG10RSTAT -2.0",
+      "GENSBACK 2",
+      "MIGRPRIOR 0.01",
+      "PFROMPOPFLAGONLY 0",
+      "LOCISPOP 1",
+      "LOCPRIORINIT 1.0",
+      "MAXLOCPRIOR 20.0",
+      "PRINTNET 1",
+      "PRINTLAMBDA 1",
+      "PRINTQSUM 1",
+      "SITEBYSITE 0",
+      "PRINTQHAT 0",
+      "UPDATEFREQ 100",
+      "PRINTLIKES 0",
+      "INTERMEDSAVE 0",
+      "ECHODATA 1",
+      "ANCESTDIST 0",
+      "NUMBOXES 1000",
+      "ANCESTPINT 0.90",
+      "COMPUTEPROB 1",
+      "ADMBURNIN 500",
+      "ALPHAPROPSD 0.025",
+      "STARTATPOPINFO 0",
+      "RANDOMIZE 0",
+      "SEED 2245",
+      "METROFREQ 10",
+      "REPORTHITRATE 0"
+    )), con = extraparams)
+    
+    
+    cmd <- paste(structure_path,
+                 "-i", input_file,
+                 "-K", rep.df[run_label, "k"],
+                 "-m", mainparams,
+                 "-e", extraparams,
+                 "-o", out_path)
+    
+    
+    message("Running STRUCTURE: ", cmd)
+    log <- tryCatch(system(cmd, intern = TRUE), error = function(e) e$message)
+    writeLines(log, paste0(out_path, "_log.txt"))
+    
+    final_out <- paste0(out_path, "_f")
+    if (!file.exists(final_out) && file.exists(out_path)) final_out <- out_path
+    if (!file.exists(final_out)) {
+      warning("Missing output file for run: ", run_label)
+      return(NULL)
+    }
+    
+    result <- tryCatch(structureRead(final_out), error = function(e) {
+      warning("Failed to parse STRUCTURE output: ", run_label)
+      return(NULL)
+    })
+    result$label <- run_label
+    result
+    
+  })
+  
+  run.result <- Filter(Negate(is.null), out_files)
+  message("Successful STRUCTURE runs: ", length(run.result))
+  names(run.result) <- sapply(run.result, `[[`, "label")
+  class(run.result) <- c("structure.result", class(run.result))
+  
+  if (length(run.result) < 3) stop("Evanno analysis needs at least three successful runs.")
+  
+  ev <- utils.structure.evanno(run.result, plot = FALSE)
+  
+  lapply(names(ev$plots), function(pname) {
+    plot_obj <- ev$plots[[pname]]
+    png_path <- file.path(".", paste0("Evanno_", pname, ".png"))
+    grDevices::png(filename = png_path, width = 1600, height = 1200, res = 200)
+    print(plot_obj)
+    grDevices::dev.off()
+    message("Saved PNG plot: ", png_path)
+  })
+  
+  
+  str.files <- list.files(pattern = "\\_f$", full.names = TRUE)
+  str.data <- lapply(str.files, starmie::loadStructure)
+  
+  for (i in str.data){
+    #path_plot <- paste(clumpp_plots, i$K)
+    file_name <- paste0("str_result_k", i$K, "plot.png")
+    plotQ(i, populations_df, outfile = file_name)
+  }
+  
 }
+
 
 ## Directly from the dartR package, revised sections with comments
 .structureParseQmat <- function (q.mat.txt, 
@@ -365,196 +505,11 @@ utils.structure.evanno <- function (sr, plot = TRUE)
 }
 
 
-### Adapted from the dartR package
-
-running_structure <- function(input_file,
-                              k.range,
-                              num.k.rep,
-                              burnin,
-                              numreps,
-                              noadmix = FALSE,
-                              phased = FALSE,
-                              ploidy = 2,
-                              linkage = FALSE,
-                              structure_path = structure_path){ #,
-                              #output_dir = tempdir(), # replaced "structure_files" with tempdir()
-                              #plot_dir = file.path(output_dir, "evanno_plots")){
-  
-  
-  # Validate K range
-  if (length(k.range) < 2) stop("Provide at least two K values for Evanno analysis.")
-  #if (!dir.exists(plot_dir)) dir.create(plot_dir, recursive = TRUE)
-  
-  numinds <- length(readLines(input_file))
-  numloci <- (ncol(read.table(input_file, header = FALSE, sep = " ")) - 2)/2
-  
-  base_label <- tools::file_path_sans_ext(basename(input_file))
-  
-  rep.df <- expand.grid(rep = 1:num.k.rep, k = k.range)
-  rep.df$run <- paste0(base_label, ".k", rep.df$k, ".r", rep.df$rep)
-  
-  
-  out_files <- lapply(1:nrow(rep.df), function(run_label) {
-    #k <- rep.df[i, "k"]
-    #####################
-    out_path <- file.path(".", rep.df[run_label, "run"])
-    
-    mainparams <- paste0(".", "/mainparams")
-    extraparams <- paste0(".", "/extraparams")
-    
-    if(is.null(ploidy)){
-      ploidy = 2
-    } else {
-      ploidy = ploidy
-    }
-    
-    writeLines(paste("#define", c(
-      paste("MAXPOPS", rep.df[run_label, "k"]),
-      paste("BURNIN", burnin),
-      paste("NUMREPS", numreps),
-      paste("INFILE", input_file),
-      paste("NUMINDS", numinds),
-      paste("NUMLOCI", numloci),
-      paste("PLOIDY", ploidy),
-      "MISSING -9", 
-      "ONEROWPERIND 1",
-      "LABEL 1", 
-      "POPDATA 1",
-      "POPFLAG 0", 
-      "LOCDATA 0", 
-      "PHENOTYPE 0",
-      "EXTRACOLS 0", 
-      "MARKERNAMES 0",
-      "RECESSIVEALLELES 0",
-      "MAPDISTANCES 0",
-      paste("PHASED", ifelse(phased, 1, 0)),
-      "MARKOVPHASE 0",
-      "NOTAMBIGUOUS -999"
-    )), con = mainparams)
-    
-    # change alpha value divide 1 with max K value #######################################################
-    alpha = 1/max(k.range)
-    
-    writeLines(paste("#define", c(
-      paste("NOADMIX", ifelse(noadmix, 1, 0)), 
-      paste("LINKAGE", ifelse(linkage, 1, 0)),
-      "USEPOPINFO 0",
-      "FREQSCORR 1",
-      "ONEFST 0",
-      "INFERALPHA 1",
-      "POPALPHAS 0",
-      paste("ALPHA", alpha),
-      "INFERLAMBDA 0",
-      "POPSPECIFICLAMBDA 0",
-      "LAMBDA 1.0",
-      "FPRIORMEAN 0.01",
-      "FPRIORSD 0.05",
-      "UNIFPRIORALPHA 1",
-      "ALPHAMAX 10.0",
-      "ALPHAPRIORA 1.0",
-      "ALPHAPRIORB 2.0",
-      "LOG10RMIN -4.0",
-      "LOG10RMAX 1.0",
-      "LOG10RSTAT -2.0",
-      "GENSBACK 2",
-      "MIGRPRIOR 0.01",
-      "PFROMPOPFLAGONLY 0",
-      "LOCISPOP 1",
-      "LOCPRIORINIT 1.0",
-      "MAXLOCPRIOR 20.0",
-      "PRINTNET 1",
-      "PRINTLAMBDA 1",
-      "PRINTQSUM 1",
-      "SITEBYSITE 0",
-      "PRINTQHAT 0",
-      "UPDATEFREQ 100",
-      "PRINTLIKES 0",
-      "INTERMEDSAVE 0",
-      "ECHODATA 1",
-      "ANCESTDIST 0",
-      "NUMBOXES 1000",
-      "ANCESTPINT 0.90",
-      "COMPUTEPROB 1",
-      "ADMBURNIN 500",
-      "ALPHAPROPSD 0.025",
-      "STARTATPOPINFO 0",
-      "RANDOMIZE 0",
-      "SEED 2245",
-      "METROFREQ 10",
-      "REPORTHITRATE 0"
-    )), con = extraparams)
-    
-    #cmd <- paste(structure_path,
-    #             "-i", input_file,
-    #             "-m", mainparams,
-    #             "-e", extraparams,
-    #             "-o", out_path)
-    
-    # for(i in 1:nrow(rep.df)){
-    cmd <- paste(structure_path,
-                 "-i", input_file,
-                 "-K", rep.df[run_label, "k"],
-                 "-m", mainparams,
-                 "-e", extraparams,
-                 "-o", out_path)
-    
-    
-    message("Running STRUCTURE: ", cmd)
-    log <- tryCatch(system(cmd, intern = TRUE), error = function(e) e$message)
-    writeLines(log, paste0(out_path, "_log.txt"))
-    
-    final_out <- paste0(out_path, "_f")
-    if (!file.exists(final_out) && file.exists(out_path)) final_out <- out_path
-    if (!file.exists(final_out)) {
-      warning("Missing output file for run: ", run_label)
-      return(NULL)
-    }
-    
-    result <- tryCatch(structureRead(final_out), error = function(e) {
-      warning("Failed to parse STRUCTURE output: ", run_label)
-      return(NULL)
-    })
-    result$label <- run_label
-    result
-    
-  })
-  
-  run.result <- Filter(Negate(is.null), out_files)
-  message("Successful STRUCTURE runs: ", length(run.result))
-  names(run.result) <- sapply(run.result, `[[`, "label")
-  class(run.result) <- c("structure.result", class(run.result))
-  
-  if (length(run.result) < 3) stop("Evanno analysis needs at least three successful runs.")
-  
-  ev <- utils.structure.evanno(run.result, plot = FALSE)
-  
-  # 
-  lapply(names(ev$plots), function(pname) {
-    plot_obj <- ev$plots[[pname]]
-    png_path <- file.path(".", paste0("Evanno_", pname, ".png"))
-    grDevices::png(filename = png_path, width = 1600, height = 1200, res = 200)
-    print(plot_obj)
-    grDevices::dev.off()
-    message("Saved PNG plot: ", png_path)
-  })
-  
-  #if (plot.out && "delta.k" %in% names(ev$plots)) {
-  suppressMessages(print(ev$plots$delta.k))
-  #}
-  
-  #if (delete.files) unlink(output_dir, recursive = TRUE)
-  
-  invisible(list(
-    results = run.result,
-    evanno = ev,
-    plot.paths = list.files(".", pattern = "^Evanno_*", full.names = TRUE)
-  ))
-}
-
 # Plot STRUCTURE
 plotQ <- function(qmat, populations_df, outfile = outfile) {
   
   # Revised to be compatible with large list of matrices
+  library(ggplot)
   facet = FALSE
   K <- qmat$K
   Label <- seq_len(nrow(qmat$ancest_df))
@@ -601,7 +556,7 @@ plotQ <- function(qmat, populations_df, outfile = outfile) {
   Q_melt <- Q_melt[order(Q_melt$Cluster),]
   Q_melt$Label <- factor(Q_melt$Label)
   
-  gg <- ggplot(Q_melt, aes(x=Label, y=Value, fill=Cluster))
+  gg <- ggplot2::ggplot(Q_melt, aes(x=Label, y=Value, fill=Cluster))
   if (!is.null(populations_df)){
     if (facet){
       gg <- gg + facet_grid( Cluster ~ Population, scales = "free_x", space = "free_x")
