@@ -22,6 +22,9 @@ run_structure <- function(
   #dir.create(plot_dir, recursive = TRUE, showWarnings = FALSE)
   #dir.create(clumpp_plots, recursive = TRUE, showWarnings = FALSE)
   
+  temp_dir <- tempfile()
+  dir.create(temp_dir)
+
   ### ================ 1. Read CSV/VCF Files
   # Get STRUCTURE path
   structure_path <- Sys.which("structure")
@@ -84,7 +87,6 @@ run_structure <- function(
   
   ### ================ 2. Write STR File
   
-  file = "structure_input.str"
   include_pop = TRUE
   
   #out_path <- file.path(path, file)
@@ -108,13 +110,13 @@ run_structure <- function(
   }
   
   final_data <- data.frame(ID = ind, POP = pop, allele_matrix, stringsAsFactors = FALSE)
-  
-  
-  write.table(final_data, file = "structure_input.str", quote = FALSE, sep = " ", row.names = FALSE, col.names = FALSE)
+
+  output_path <- file.path(temp_dir, "structure_input.str")
+  write.table(final_data, file = output_path, quote = FALSE, sep = " ", row.names = FALSE, col.names = FALSE)
   
   ### ================ 3. RUN STRUCTURE
-  wd <- getwd()
-  input_file = file.path(paste0(wd, "structure_input.str"))
+  #wd <- getwd()
+  input_file = output_path
 
   # Validate K range
   if (length(k.range) < 2) stop("Provide at least two K values for Evanno analysis.")
@@ -131,10 +133,10 @@ run_structure <- function(
   
   out_files <- lapply(1:nrow(rep.df), function(run_label) {
     
-    out_path <- file.path(path, rep.df[run_label, "run"])
+    out_path <- file.path(temp_dir, rep.df[run_label, "run"])
     
-    mainparams <- paste0(path, "/mainparams")
-    extraparams <- paste0(path, "/extraparams")
+    mainparams <- paste0(temp_dir, "/mainparams")
+    extraparams <- paste0(temp_dir, "/extraparams")
     
     if(is.null(ploidy)){
       ploidy = 2
@@ -258,7 +260,7 @@ run_structure <- function(
   
   lapply(names(ev$plots), function(pname) {
     plot_obj <- ev$plots[[pname]]
-    png_path <- file.path(path, paste0("Evanno_", pname, ".png"))
+    png_path <- file.path(temp_dir, paste0("Evanno_", pname, ".png"))
     grDevices::png(filename = png_path, width = 1600, height = 1200, res = 200)
     print(plot_obj)
     grDevices::dev.off()
@@ -266,12 +268,12 @@ run_structure <- function(
   })
   
   
-  str.files <- list.files(path, pattern = "\\_f$", full.names = TRUE)
+  str.files <- list.files(temp_dir, pattern = "\\_f$", full.names = TRUE)
   str.data <- lapply(str.files, starmie::loadStructure)
   
   for (i in str.data){
     #path_plot <- paste(clumpp_plots, i$K)
-    file_name <- paste0(path, "str_result_k", i$K, "plot.png")
+    file_name <- paste0(temp_dir, "str_result_k", i$K, "plot.png")
     plotQ(i, populations_df, outfile = file_name)
   }
   
